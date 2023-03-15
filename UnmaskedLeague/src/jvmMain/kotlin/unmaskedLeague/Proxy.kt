@@ -121,8 +121,10 @@ class LeagueProxyClient internal constructor(
         val bodyStream = if(isCompressed) payloadGzip.base64Ungzip() else payloadGzip
         val payload = JsonReader(bodyStream).read().getOrElse { throw it }
 
+        if(payload["queueId"].asInt().getOrNull() != SOLOQ_ID) return nodes
+
         payload["championSelectState"]["cells"]["alliedTeam"].asArray().getOrNull()?.forEach {
-                if (it["nameVisibilityType"].isRight())  it["nameVisibilityType"] = "VISIBLE"
+                if (it["nameVisibilityType"].isRight())  it["nameVisibilityType"] = "UNHIDDEN"
         }
 
         val serialized = payload.serialize()

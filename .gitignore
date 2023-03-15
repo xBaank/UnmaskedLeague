@@ -1,0 +1,6 @@
+# Project exclude paths
+/.gradle/
+/Rtmp/build/
+/Rtmp/build/classes/kotlin/jvm/main/
+/UnmaskedLeague/build/
+/UnmaskedLeague/build/classes/kotlin/jvm/main/

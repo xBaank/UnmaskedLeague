@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Rtmp-js-1.0.0">
+    <output-path>$PROJECT_DIR$/Rtmp/build/libs</output-path>
+    <root id="archive" name="Rtmp-js-1.0.0.jar">
+      <element id="module-output" name="UnmaskedLeague.Rtmp.jsMain" />
+    </root>
+  </artifact>
+</component>

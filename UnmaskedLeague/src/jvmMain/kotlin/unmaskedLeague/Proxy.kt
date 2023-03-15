@@ -12,9 +12,6 @@ import kotlinx.coroutines.launch
 import rtmp.MessagesHandler
 import rtmp.amf0.*
 import simpleJson.*
-import java.io.File
-import java.time.Instant
-import java.util.UUID
 
 private const val SOLOQ_ID = 420
 
@@ -109,7 +106,7 @@ class LeagueProxyClient internal constructor(
 
     }
 
-    private fun unmask(nodes : List<Amf0Node>) : List<Amf0Node> {
+    private fun unmask(nodes: List<Amf0Node>): List<Amf0Node> {
         val body = nodes.firstOrNull { it["body"] != null }?.get("body")
 
         val isCompressed = body?.get("compressedPayload")?.toAmf0Boolean()?.value ?: return nodes
@@ -118,17 +115,17 @@ class LeagueProxyClient internal constructor(
         println("Unmasking payload")
         println("Compressed: $isCompressed")
 
-        val bodyStream = if(isCompressed) payloadGzip.base64Ungzip() else payloadGzip
+        val bodyStream = if (isCompressed) payloadGzip.base64Ungzip() else payloadGzip
         val payload = JsonReader(bodyStream).read().getOrElse { throw it }
 
-        if(payload["queueId"].asInt().getOrNull() != SOLOQ_ID) return nodes
+        if (payload["queueId"].asInt().getOrNull() != SOLOQ_ID) return nodes
 
         payload["championSelectState"]["cells"]["alliedTeam"].asArray().getOrNull()?.forEach {
-                if (it["nameVisibilityType"].isRight())  it["nameVisibilityType"] = "UNHIDDEN"
+            if (it["nameVisibilityType"].isRight()) it["nameVisibilityType"] = "UNHIDDEN"
         }
 
         val serialized = payload.serialize()
-        body["payload"] = if(isCompressed) serialized.gzipBase64().toAmf0String() else serialized.toAmf0String()
+        body["payload"] = if (isCompressed) serialized.gzipBase64().toAmf0String() else serialized.toAmf0String()
 
         return nodes
     }

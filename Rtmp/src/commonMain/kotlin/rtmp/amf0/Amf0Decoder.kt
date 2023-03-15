@@ -6,7 +6,7 @@ import kotlinx.coroutines.isActive
 import okio.BufferedSource
 import rtmp.readDouble
 
-class AMF0Decoder(private val input : BufferedSource) {
+class AMF0Decoder(private val input: BufferedSource) {
 
     suspend fun decodeAll(): List<Amf0Node> = coroutineScope {
         val result = mutableListOf<Amf0Node>()

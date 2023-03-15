@@ -114,7 +114,7 @@ class Amf0Encoder(private val output: BufferedSink) {
         output.writeShort(node.timezone.toInt())
     }
 
-    suspend fun writeAll(nodes : List<Amf0Node>) = nodes.forEachAsync {
+    suspend fun writeAll(nodes: List<Amf0Node>) = nodes.forEachAsync {
         write(it)
     }
 }

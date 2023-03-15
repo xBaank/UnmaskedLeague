@@ -10,8 +10,6 @@ import rtmp.amf0.AMF0Decoder
 import rtmp.amf0.Amf0Encoder
 import rtmp.amf0.Amf0Node
 import rtmp.packets.*
-import rtmp.packets.CHUNCK_HEADER_TYPE_0
-import rtmp.packets.CHUNCK_HEADER_TYPE_1
 
 internal const val CHUNK_SIZE = 128
 
@@ -20,8 +18,12 @@ internal const val TIMESTAMP_SIZE = 3
 internal const val LENGTH_SIZE = 3
 internal const val MESSAGE_ID_SIZE = 4
 
-class MessagesHandler(val input : ByteReadChannel, val output : ByteWriteChannel, val interceptor: (List<Amf0Node>) -> List<Amf0Node>) {
-    private val incomingPartialRawMessages = mutableMapOf<Byte,RawRtmpPacket>()
+class MessagesHandler(
+    val input: ByteReadChannel,
+    val output: ByteWriteChannel,
+    val interceptor: (List<Amf0Node>) -> List<Amf0Node>
+) {
+    private val incomingPartialRawMessages = mutableMapOf<Byte, RawRtmpPacket>()
     private val completedRawMessages = MutableSharedFlow<RawRtmpPacket>()
     private val outgoingPartialRawMessages = MutableSharedFlow<RawRtmpPacket>()
     private val payloadBuffer = ByteArray(CHUNK_SIZE)
@@ -33,7 +35,7 @@ class MessagesHandler(val input : ByteReadChannel, val output : ByteWriteChannel
         launch { writingLoop() }
     }
 
-    private suspend fun writingLoop() : Unit = coroutineScope {
+    private suspend fun writingLoop(): Unit = coroutineScope {
         outgoingPartialRawMessages.collect {
             writeHeader(it.header)
             while (it.length > 0 && isActive) {
@@ -42,8 +44,9 @@ class MessagesHandler(val input : ByteReadChannel, val output : ByteWriteChannel
                 output.writeFully(asByteArray, 0, toWrite.toInt())
 
                 it.length -= toWrite.toInt()
-                if(it.length != 0) {
-                    val firstByte = ((CHUNCK_HEADER_TYPE_3.toInt() shl 6) and 0b11000000) or (it.header.channelId.toInt() and 0b00111111)
+                if (it.length != 0) {
+                    val firstByte =
+                        ((CHUNCK_HEADER_TYPE_3.toInt() shl 6) and 0b11000000) or (it.header.channelId.toInt() and 0b00111111)
                     output.writeByte(firstByte)
                     //TODO Use the correct first byte
                 }
@@ -52,11 +55,11 @@ class MessagesHandler(val input : ByteReadChannel, val output : ByteWriteChannel
         }
     }
 
-    private suspend fun readingLoop() : Unit = coroutineScope {
+    private suspend fun readingLoop(): Unit = coroutineScope {
         while (isActive) {
             val header = readHeader()
             val packet = incomingPartialRawMessages.getOrPut(header.channelId) {
-                val length = if(header is RTMPPacketHeader0) header.length.toInt() else 0
+                val length = if (header is RTMPPacketHeader0) header.length.toInt() else 0
                 RawRtmpPacket(header, Buffer(), length)
             }
 
@@ -67,7 +70,7 @@ class MessagesHandler(val input : ByteReadChannel, val output : ByteWriteChannel
             packet.payload.write(payloadBuffer, 0, toRead)
             packet.length -= toRead
 
-            if(packet.length == 0) {
+            if (packet.length == 0) {
                 incomingPartialRawMessages.remove(header.channelId)
                 completedRawMessages.emit(packet)
                 println("Completed packet")
@@ -99,12 +102,11 @@ class MessagesHandler(val input : ByteReadChannel, val output : ByteWriteChannel
     }
 
 
-
     private suspend fun readHeader(): RTMPPacketHeader {
         val firstByte = input.readByte().toInt()
         val chunkHeaderType = (firstByte shr 6 and 0b11).toByte()
         val channelId = (firstByte and 0b00111111).toByte()
-        val chunkBasicHeader = ChunkBasicHeader(firstByte.toByte(),chunkHeaderType, channelId)
+        val chunkBasicHeader = ChunkBasicHeader(firstByte.toByte(), chunkHeaderType, channelId)
 
         return when (chunkBasicHeader.chunkHeaderType) {
             CHUNCK_HEADER_TYPE_0 -> {
@@ -165,6 +167,7 @@ class MessagesHandler(val input : ByteReadChannel, val output : ByteWriteChannel
         is ChunkBasicHeader -> {
             output.writeByte(header.originalFirtByte)
         }
+
         is RTMPPacketHeader0 -> {
             output.writeByte(header.originalFirtByte)
             output.writeFully(header.timeStamp)
@@ -172,12 +175,14 @@ class MessagesHandler(val input : ByteReadChannel, val output : ByteWriteChannel
             output.writeByte(header.messageTypeId)
             output.writeFully(header.streamId)
         }
+
         is RTMPPacketHeader1 -> {
             output.writeByte(header.originalFirtByte)
             output.writeFully(header.timeStamp)
             output.writeFully(header.length)
             output.writeByte(header.messageTypeId)
         }
+
         is RTMPPacketHeader2 -> {
             output.writeByte(header.originalFirtByte)
             output.writeFully(header.timeStamp)

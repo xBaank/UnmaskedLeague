@@ -1,7 +1,5 @@
 package rtmp.amf0
 
-import kotlin.jvm.JvmInline
-
 sealed interface Amf0Node
 
 @JvmInline

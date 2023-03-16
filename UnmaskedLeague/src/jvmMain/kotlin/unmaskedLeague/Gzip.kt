@@ -14,7 +14,6 @@ fun String.base64Ungzip(): String {
 }
 
 fun String.gzipBase64(): String {
-    this.toByteArray(Charsets.UTF_8)
     val outputStream = ByteArrayOutputStream()
     GZIPOutputStream(outputStream).bufferedWriter(Charsets.UTF_8).use { it.write(this); it.flush() }
     return Base64.getEncoder().encodeToString(outputStream.toByteArray())

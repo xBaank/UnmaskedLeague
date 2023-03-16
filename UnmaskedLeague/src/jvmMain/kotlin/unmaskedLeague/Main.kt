@@ -63,10 +63,10 @@ fun main(): Unit = SuspendApp {
         ?: return@SuspendApp cancel("Cannot find ALLUSERSPROFILE")
 
     val riotClientInstalls = System.getenv("ALLUSERSPROFILE")
-    ?.let { "$it/Riot Games/RiotClientInstalls.json" }
-    ?.toPath(true)
-    ?.takeIf { FileSystem.SYSTEM.exists(it)}
-    ?: return@SuspendApp cancel("Cannot find ALLUSERSPROFILE")
+        ?.let { "$it/Riot Games/RiotClientInstalls.json" }
+        ?.toPath(true)
+        ?.takeIf { FileSystem.SYSTEM.exists(it)}
+        ?: return@SuspendApp cancel("Cannot find ALLUSERSPROFILE")
 
     val riotClientInstallsJson = FileSystem.SYSTEM.source(riotClientInstalls).buffer().readUtf8().deserialize()
     val riotClientPath = riotClientInstallsJson["rc_live"].asString().getOrElse { return@SuspendApp cancel("Cannot find rc_live") }

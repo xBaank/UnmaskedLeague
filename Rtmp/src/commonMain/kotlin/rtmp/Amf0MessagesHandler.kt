@@ -48,7 +48,6 @@ class Amf0MessagesHandler(
                     val firstByte =
                         ((CHUNCK_HEADER_TYPE_3.toInt() shl 6) and 0b11000000) or (it.header.channelId.toInt() and 0b00111111)
                     output.writeByte(firstByte)
-                    //TODO Use the correct first byte
                 }
             }
             println("Wrote packet")

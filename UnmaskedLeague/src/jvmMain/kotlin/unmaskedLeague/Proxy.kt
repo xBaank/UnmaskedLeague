@@ -9,7 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import rtmp.MessagesHandler
+import rtmp.Amf0MessagesHandler
 import rtmp.amf0.*
 import simpleJson.*
 
@@ -82,7 +82,7 @@ class LeagueProxyClient internal constructor(
 
         handshake(serverReadChannel, clientWriteChannel, clientReadChannel, serverWriteChannel)
 
-        val messagesHandler = MessagesHandler(clientReadChannel, serverWriteChannel, ::unmask)
+        val messagesHandler = Amf0MessagesHandler(clientReadChannel, serverWriteChannel, ::unmask)
 
         launch(Dispatchers.IO) {
             messagesHandler.start()

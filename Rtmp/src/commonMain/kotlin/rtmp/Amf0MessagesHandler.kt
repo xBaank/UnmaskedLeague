@@ -18,7 +18,7 @@ internal const val TIMESTAMP_SIZE = 3
 internal const val LENGTH_SIZE = 3
 internal const val MESSAGE_ID_SIZE = 4
 
-class MessagesHandler(
+class Amf0MessagesHandler(
     val input: ByteReadChannel,
     val output: ByteWriteChannel,
     val interceptor: (List<Amf0Node>) -> List<Amf0Node>

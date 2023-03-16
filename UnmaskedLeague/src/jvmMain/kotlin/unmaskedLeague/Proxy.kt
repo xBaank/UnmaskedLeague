@@ -52,7 +52,7 @@ fun LeagueProxyClient(proxyPort: Int, host: String, port: Int): LeagueProxyClien
 }
 
 class LeagueProxyClient internal constructor(
-    val serverSocket: ServerSocket,
+    private val serverSocket: ServerSocket,
     private val host: String,
     private val port: Int
 ) {
@@ -65,7 +65,7 @@ class LeagueProxyClient internal constructor(
                     handleSocket(socket)
                 }.onFailure {
                     println("Error handling socket: ${socket.remoteAddress}")
-                    throw it
+                    it.printStack()
                 }
             }
         }

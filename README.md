@@ -1,7 +1,7 @@
 # UnmaskedLeague
 UnmaskedLeague is an application for the League of Legends client. 
 It allows you to unmask the names of the players in SOLOQ champion select. 
-![Umasked2.png](.assets/Umasked2.png)
+![Umasked.png](.assets/Umasked.png)
 ## Requirements
 Java 8 or higher.
 ## Usage

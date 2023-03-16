@@ -6,4 +6,4 @@ It allows you to unmask the names of the players in champion select.
 Any version of java 8 or higher.
 ## Usage
 1. Download the latest release from the [releases page](https://github.com/xBaank/UnmaskedLeague/releases).
-2. Run the jar file.
+2. Run the jar file with the client closed.

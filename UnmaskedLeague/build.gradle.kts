@@ -7,7 +7,7 @@ repositories {
 }
 
 val ktor_version: String by project
-
+val kotlinProcessVersion: String by project
 kotlin {
     jvm {
         compilations.all {
@@ -24,6 +24,11 @@ kotlin {
                 implementation("io.arrow-kt:suspendapp:0.4.0")
                 implementation("io.github.xbaank:simpleJson-core:1.0.1")
                 implementation("io.arrow-kt:arrow-core:1.1.5")
+                // https://mvnrepository.com/artifact/org.yaml/snakeyaml
+                implementation("org.yaml:snakeyaml:2.0")
+                implementation("com.squareup.okio:okio:3.3.0")
+                // Check the 🔝 maven central badge 🔝 for the latest $kotlinProcessVersion
+                implementation("com.github.pgreze:kotlin-process:$kotlinProcessVersion")
                 implementation(project(":Rtmp"))
             }
         }

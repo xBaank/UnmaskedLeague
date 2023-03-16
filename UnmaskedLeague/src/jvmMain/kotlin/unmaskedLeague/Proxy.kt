@@ -89,6 +89,8 @@ class LeagueProxyClient internal constructor(
             messagesHandler.start()
         }
 
+        //lolCLient -> proxy -> lolServer
+        //We don't need to intercept these messages
         launch(Dispatchers.IO) {
             val lolClientByteArray = ByteArray(1024)
             while (isActive) {
@@ -121,8 +123,11 @@ class LeagueProxyClient internal constructor(
 
         if (payload["queueId"].asInt().getOrNull() != SOLOQ_ID) return nodes
 
+        val localCellID = payload["championSelectState"]["localPlayerCellId"].asInt().getOrNull()
+
         payload["championSelectState"]["cells"]["alliedTeam"].asArray().getOrNull()?.forEach {
-            if (it["nameVisibilityType"].isRight()) it["nameVisibilityType"] = "UNHIDDEN"
+            if (it["cellId"].asInt().getOrNull() == localCellID) return@forEach
+            if (it["nameVisibilityType"].isRight()) it["nameVisibilityType"] = "VISIBLE"
         }
 
         val serialized = payload.serialize()

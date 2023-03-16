@@ -1,3 +1,5 @@
+import org.gradle.jvm.tasks.Jar
+
 plugins {
     kotlin("multiplatform") version "1.7.20"
 }
@@ -16,8 +18,8 @@ kotlin {
                 jvmTarget = "1.8"
             }
         }
-        tasks.register<Jar>("fatJar") {
-            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        val jvmJar by tasks.getting(Jar::class) {
+            duplicatesStrategy = DuplicatesStrategy.INCLUDE
             doFirst {
                 manifest {
                     attributes["Main-Class"] = "unmaskedLeague.MainKt"

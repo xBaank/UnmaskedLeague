@@ -3,6 +3,7 @@ package unmaskedLeague
 import arrow.continuations.SuspendApp
 import arrow.core.getOrElse
 import com.github.pgreze.process.process
+import io.ktor.network.sockets.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -17,6 +18,7 @@ import org.yaml.snakeyaml.Yaml
 import simpleJson.asString
 import simpleJson.deserialize
 import simpleJson.get
+
 
 val hosts = mapOf(
     "BR" to LcdsHost("feapp.br1.lol.pvp.net", 2099),
@@ -42,14 +44,13 @@ data class LcdsHost(val host: String, val port: Int)
 
 val mutex = Mutex()
 fun main(): Unit = SuspendApp {
-    var port = 21340
     hosts.forEach { (region, lcds) ->
         launch(Dispatchers.IO) {
             val proxyClient = mutex.withLock {
-                println("Starting $region proxy on $port")
-                val proxyClient = LeagueProxyClient(port, lcds.host, lcds.port)
+                val proxyClient = LeagueProxyClient(lcds.host, lcds.port)
+                val port = proxyClient.serverSocket.localAddress.port
                 proxyHosts[region] = LcdsHost("127.0.0.1",port)
-                port += 1
+                println("Starting $region proxy on $port")
                 proxyClient
             }
             proxyClient.start()
@@ -93,7 +94,13 @@ fun main(): Unit = SuspendApp {
     FileSystem.SYSTEM.sink(systemYamlPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
 
     process(riotClientPath, "--launch-product=league_of_legends", "--launch-patchline=live", "--allow-multiple-clients")
+    cancel("League closed")
 }
 
 private fun Any?.getMap(s: String) = (this as Map<String, Any?>)[s] as Map<String, Any?>
+private val SocketAddress.port: Int
+    get() = when (this) {
+        is InetSocketAddress -> port
+        else -> throw IllegalStateException("SocketAddress is not an InetSocketAddress")
+    }
 

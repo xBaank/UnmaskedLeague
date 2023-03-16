@@ -5,10 +5,9 @@ import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
 import io.ktor.network.tls.*
 import io.ktor.utils.io.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import rtmp.Amf0MessagesHandler
 import rtmp.amf0.*
 import simpleJson.*
@@ -45,29 +44,36 @@ private suspend fun handshake(
     clientWriteChannel.writeFully(c1Echo, 0, c1Echo.size)
 }
 
-fun LeagueProxyClient(proxyPort: Int, host: String, port: Int): LeagueProxyClient {
+fun LeagueProxyClient(host: String, port: Int): LeagueProxyClient {
     val selectorManager = SelectorManager(Dispatchers.IO)
-    val socketServer = aSocket(selectorManager).tcp().bind(port = proxyPort)
+    val socketServer = aSocket(selectorManager).tcp().bind()
 
     return LeagueProxyClient(socketServer, host, port)
 }
 
 class LeagueProxyClient internal constructor(
-    private val serverSocket: ServerSocket,
+    val serverSocket: ServerSocket,
     private val host: String,
-    private val port: Int
+    private val port: Int,
 ) {
     suspend fun start() = coroutineScope {
         while (isActive) {
             val socket = serverSocket.accept()
             println("Accepted connection from ${socket.remoteAddress}")
             launch(Dispatchers.IO) {
-                runCatching {
-                    handleSocket(socket)
-                }.onFailure {
-                    println("Error handling socket: ${socket.remoteAddress}")
-                    it.printStack()
-                }
+                handle(socket)
+            }
+        }
+    }
+
+    private suspend fun handle(socket: Socket) {
+        runCatching {
+            handleSocket(socket)
+        }.onFailure {
+            when (it) {
+                is ClosedReceiveChannelException -> return
+                is CancellationException -> return
+                else -> throw it
             }
         }
     }
@@ -97,9 +103,9 @@ class LeagueProxyClient internal constructor(
                 val bytes = serverReadChannel.readAvailable(lolClientByteArray)
 
                 if (bytes == -1) {
-                    println("Socket ${socket.remoteAddress} closed connection")
                     socket.close()
-                    return@launch
+                    clientSocket.close()
+                    cancel("Socket closed")
                 }
 
                 clientWriteChannel.writeFully(lolClientByteArray, 0, bytes)

@@ -11,7 +11,7 @@ val ktor_version: String by project
 kotlin {
     jvm()
     sourceSets {
-        val commonMain by getting {
+        val jvmMain by getting {
             dependencies {
                 implementation("io.ktor:ktor-network:$ktor_version")
                 implementation("io.ktor:ktor-network-tls:$ktor_version")

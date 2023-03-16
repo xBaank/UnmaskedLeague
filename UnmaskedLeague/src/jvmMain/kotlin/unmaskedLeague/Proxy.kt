@@ -21,6 +21,7 @@ private suspend fun handshake(
     clientReadChannel: ByteReadChannel,
     serverWriteChannel: ByteWriteChannel
 ) {
+    //TODO Could we use the same handshake for all connections so we don't alloocate 1536 bytes for each connection?
     val c0 = serverReadChannel.readByte()
     clientWriteChannel.writeByte(c0)
     val c1 = ByteArray(1536)

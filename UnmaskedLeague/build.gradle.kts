@@ -9,7 +9,13 @@ repositories {
 val ktor_version: String by project
 
 kotlin {
-    jvm()
+    jvm {
+        compilations.all {
+            kotlinOptions {
+                jvmTarget = JavaVersion.VERSION_1_8.toString()
+            }
+        }
+    }
     sourceSets {
         val jvmMain by getting {
             dependencies {

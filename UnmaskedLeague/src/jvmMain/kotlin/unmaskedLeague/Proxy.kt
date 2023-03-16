@@ -89,7 +89,7 @@ class LeagueProxyClient internal constructor(
         }
 
         launch(Dispatchers.IO) {
-            val lolClientByteArray = ByteArray(100_000)
+            val lolClientByteArray = ByteArray(1024)
             while (isActive) {
                 val bytes = serverReadChannel.readAvailable(lolClientByteArray)
                 println("Received $bytes bytes from the client")
@@ -115,8 +115,8 @@ class LeagueProxyClient internal constructor(
         println("Unmasking payload")
         println("Compressed: $isCompressed")
 
-        val bodyStream = if (isCompressed) payloadGzip.base64Ungzip() else payloadGzip
-        val payload = JsonReader(bodyStream).read().getOrElse { throw it }
+        val json = if (isCompressed) payloadGzip.base64Ungzip() else payloadGzip
+        val payload = json.deserialize().getOrElse { throw it } // Can this come in other formats?
 
         if (payload["queueId"].asInt().getOrNull() != SOLOQ_ID) return nodes
 

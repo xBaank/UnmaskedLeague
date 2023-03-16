@@ -1,6 +1,7 @@
 package rtmp
 
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import okio.BufferedSink
 import okio.BufferedSource
@@ -18,7 +19,7 @@ fun Int.toLengthArray(): ByteArray {
 
 suspend inline fun <T> Iterable<T>.forEachAsync(crossinline action: (T) -> Unit) = coroutineScope {
     for (element in this@forEachAsync) {
-        if (!isActive) throw CancellationException()
+        ensureActive()
         action(element)
     }
 }

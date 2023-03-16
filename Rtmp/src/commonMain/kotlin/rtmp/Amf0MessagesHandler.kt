@@ -19,9 +19,9 @@ internal const val LENGTH_SIZE = 3
 internal const val MESSAGE_ID_SIZE = 4
 
 class Amf0MessagesHandler(
-    val input: ByteReadChannel,
-    val output: ByteWriteChannel,
-    val interceptor: (List<Amf0Node>) -> List<Amf0Node>
+    private val input: ByteReadChannel,
+    private val output: ByteWriteChannel,
+    private val interceptor: (List<Amf0Node>) -> List<Amf0Node>
 ) {
     private val incomingPartialRawMessages = mutableMapOf<Byte, RawRtmpPacket>()
     private val completedRawMessages = MutableSharedFlow<RawRtmpPacket>()
@@ -50,7 +50,6 @@ class Amf0MessagesHandler(
                     output.writeByte(firstByte)
                 }
             }
-            println("Wrote packet")
         }
     }
 
@@ -62,8 +61,6 @@ class Amf0MessagesHandler(
                 RawRtmpPacket(header, Buffer(), length)
             }
 
-            println("Reading ${packet.length} bytes")
-
             val toRead = minOf(CHUNK_SIZE, packet.length)
             input.readFully(payloadBuffer, 0, toRead)
             packet.payload.write(payloadBuffer, 0, toRead)
@@ -72,7 +69,6 @@ class Amf0MessagesHandler(
             if (packet.length == 0) {
                 incomingPartialRawMessages.remove(header.channelId)
                 completedRawMessages.emit(packet)
-                println("Completed packet")
             }
         }
     }
@@ -92,7 +88,6 @@ class Amf0MessagesHandler(
                     streamId = packet.header.streamId
                 )
                 outgoingPartialRawMessages.emit(RawRtmpPacket(newHeader, newMessageRaw, newMessageRaw.size.toInt()))
-                println("Intercepted packet")
             } else {
                 packet.length = packet.payload.size.toInt()
                 outgoingPartialRawMessages.emit(packet)

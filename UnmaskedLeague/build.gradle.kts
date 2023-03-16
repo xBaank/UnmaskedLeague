@@ -10,9 +10,19 @@ val ktor_version: String by project
 val kotlinProcessVersion: String by project
 kotlin {
     jvm {
+        withJava()
         compilations.all {
             kotlinOptions {
-                jvmTarget = JavaVersion.VERSION_1_8.toString()
+                jvmTarget = "1.8"
+            }
+        }
+        tasks.register<Jar>("fatJar") {
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+            doFirst {
+                manifest {
+                    attributes["Main-Class"] = "unmaskedLeague.MainKt"
+                }
+                from(configurations.getByName("runtimeClasspath").map { if (it.isDirectory) it else zipTree(it) })
             }
         }
     }

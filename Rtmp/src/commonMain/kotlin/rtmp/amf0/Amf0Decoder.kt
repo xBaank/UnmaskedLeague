@@ -10,12 +10,10 @@ class AMF0Decoder(private val input: BufferedSource) {
 
     suspend fun decodeAll(): List<Amf0Node> = coroutineScope {
         val result = mutableListOf<Amf0Node>()
-        kotlin.runCatching {
-            while (isActive) {
-                val node = decode()
-                result.add(node)
-                if (input.exhausted()) break
-            }
+        while (isActive) {
+            val node = decode()
+            result.add(node)
+            if (input.exhausted()) break
         }
         result
     }
@@ -99,13 +97,9 @@ class AMF0Decoder(private val input: BufferedSource) {
     private fun readAMF0StrictArray(): Amf0StrictArray {
         val length = input.readInt()
         val result = mutableListOf<Amf0Node>()
-        kotlin.runCatching {
-            for (i in 0 until length) {
-                val value = decode()
-                result.add(value)
-            }
-        }.onFailure {
-            println()
+        for (i in 0 until length) {
+            val value = decode()
+            result.add(value)
         }
         return Amf0StrictArray(result)
     }

@@ -4,11 +4,7 @@ import arrow.continuations.SuspendApp
 import arrow.core.getOrElse
 import com.github.pgreze.process.process
 import io.ktor.network.sockets.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.*
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -18,6 +14,7 @@ import org.yaml.snakeyaml.Yaml
 import simpleJson.asString
 import simpleJson.deserialize
 import simpleJson.get
+import javax.swing.JOptionPane
 
 
 val hosts = mapOf(
@@ -40,41 +37,50 @@ val yamlOptions = DumperOptions().apply {
 val yaml = Yaml(yamlOptions)
 
 
+
 data class LcdsHost(val host: String, val port: Int)
 
-val mutex = Mutex()
 fun main(): Unit = SuspendApp {
-    hosts.forEach { (region, lcds) ->
-        launch(Dispatchers.IO) {
-            val proxyClient = mutex.withLock {
-                val proxyClient = LeagueProxyClient(lcds.host, lcds.port)
-                val port = proxyClient.serverSocket.localAddress.port
-                proxyHosts[region] = LcdsHost("127.0.0.1",port)
-                println("Starting $region proxy on $port")
-                proxyClient
-            }
-            proxyClient.start()
-        }
+    runCatching {
+        proxies().forEach { launch { it.start() } }
+        startClient()
+    }.onFailure {
+        if (it is LeagueNotFoundException)
+        showLeagueNotFound(it.message ?: "")
+        cancel()
     }
-    val lolClientInstalls : Path = System.getenv("ALLUSERSPROFILE")
+    awaitCancellation()
+}
+
+private fun proxies() =  hosts.map { (region, lcds) ->
+    val proxyClient = LeagueProxyClient(lcds.host, lcds.port)
+    val port = proxyClient.serverSocket.localAddress.port
+    proxyHosts[region] = LcdsHost("127.0.0.1", port)
+    println("Created proxy for $region on port $port")
+    proxyClient
+}
+
+private suspend fun startClient() = coroutineScope {
+    val lolClientInstalls: Path = System.getenv("ALLUSERSPROFILE")
         ?.let { "$it/Riot Games/Metadata/league_of_legends.live/league_of_legends.live.product_settings.yaml" }
         ?.toPath(true)
-        ?.takeIf { FileSystem.SYSTEM.exists(it)}
-        ?: return@SuspendApp cancel("Cannot find ALLUSERSPROFILE")
+        ?.takeIf { FileSystem.SYSTEM.exists(it) }
+        ?: throw LeagueNotFoundException("Cannot find Lol Client Installs (ALLUSERSPROFILE)")
 
     val riotClientInstalls = System.getenv("ALLUSERSPROFILE")
         ?.let { "$it/Riot Games/RiotClientInstalls.json" }
         ?.toPath(true)
-        ?.takeIf { FileSystem.SYSTEM.exists(it)}
-        ?: return@SuspendApp cancel("Cannot find ALLUSERSPROFILE")
+        ?.takeIf { FileSystem.SYSTEM.exists(it) }
+        ?: throw LeagueNotFoundException("Cannot find Riot Client Installs (ALLUSERSPROFILE)")
 
     val riotClientInstallsJson = FileSystem.SYSTEM.source(riotClientInstalls).buffer().readUtf8().deserialize()
-    val riotClientPath = riotClientInstallsJson["rc_live"].asString().getOrElse { return@SuspendApp cancel("Cannot find rc_live") }
+    val riotClientPath = riotClientInstallsJson["rc_live"].asString()
+        .getOrElse { throw LeagueNotFoundException("Cannot find property rc_live") }
 
     val file = FileSystem.SYSTEM.source(lolClientInstalls).buffer()
 
     val yamlMap = yaml.load<Map<String, Any>>(file.readUtf8())
-    val lolPath : String = yamlMap["product_install_full_path"] as String
+    val lolPath: String = yamlMap["product_install_full_path"] as String
     val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
 
     val systemYaml = FileSystem.SYSTEM.source(systemYamlPath)
@@ -96,6 +102,9 @@ fun main(): Unit = SuspendApp {
     process(riotClientPath, "--launch-product=league_of_legends", "--launch-patchline=live", "--allow-multiple-clients")
     cancel("League closed")
 }
+
+private fun showLeagueNotFound(msg : String) =
+    JOptionPane.showMessageDialog(null, msg, "League Not Found", JOptionPane.ERROR_MESSAGE);
 
 private fun Any?.getMap(s: String) = (this as Map<String, Any?>)[s] as Map<String, Any?>
 private val SocketAddress.port: Int

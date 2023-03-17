@@ -26,7 +26,6 @@ val hosts = mapOf(
     "LA2" to LcdsHost("feapp.la2.lol.pvp.net", 2099),
     "NA" to LcdsHost("feapp.na1.lol.pvp.net", 2099),
     "OC1" to LcdsHost("feapp.oc1.lol.pvp.net", 2099),
-    "RU" to LcdsHost("prod.ru.lol.riotgames.com", 2099),
 )
 
 val proxyHosts = mutableMapOf<String,LcdsHost>()

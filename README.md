@@ -7,3 +7,5 @@ Java 8 or higher.
 ## Usage
 1. Download the latest release from the [releases page](https://github.com/xBaank/UnmaskedLeague/releases).
 2. Run the jar file to open the client.
+> **Warning**
+> If you have issues with the client, it may need to be updated. To do that just launch the client without using the jar.

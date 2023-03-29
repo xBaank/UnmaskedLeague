@@ -1,7 +1,7 @@
 # UnmaskedLeague
 
 > **Note**
-> This exploit was originally found by [Hawolt](https://github.com/hawolt), You can find his own version here: [Oldseason](https://github.com/Riotphobia/Oldseason)
+> This exploit was discovered by [Hawolt](https://github.com/hawolt), You can his version here: [Oldseason](https://github.com/Riotphobia/Oldseason)
 
 UnmaskedLeague is an application for the League of Legends client. 
 It allows you to unmask the names of the players in SOLOQ champion select. 

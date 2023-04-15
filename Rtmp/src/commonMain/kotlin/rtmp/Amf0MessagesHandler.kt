@@ -21,7 +21,7 @@ internal const val MESSAGE_ID_SIZE = 4
 class Amf0MessagesHandler(
     private val input: ByteReadChannel,
     private val output: ByteWriteChannel,
-    private val interceptor: (List<Amf0Node>) -> List<Amf0Node>
+    private val interceptor: suspend (List<Amf0Node>) -> List<Amf0Node>
 ) {
     private val incomingPartialRawMessages = mutableMapOf<Byte, RawRtmpPacket>()
     private val completedRawMessages = MutableSharedFlow<RawRtmpPacket>()
@@ -77,7 +77,7 @@ class Amf0MessagesHandler(
         completedRawMessages.collect { packet ->
             //Only intercepting AMF0 messages
             if (packet.header is RTMPPacketHeader0 && packet.header.messageTypeId.toInt() == 0x14) {
-                val message = AMF0Decoder(packet.payload).decodeAll().let(interceptor)
+                val message = interceptor(AMF0Decoder(packet.payload).decodeAll())
                 val newMessageRaw = Buffer()
                 Amf0Encoder(newMessageRaw).writeAll(message)
                 val newHeader = RTMPPacketHeader0(

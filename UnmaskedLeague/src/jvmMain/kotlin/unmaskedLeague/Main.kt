@@ -3,8 +3,10 @@ package unmaskedLeague
 import arrow.continuations.SuspendApp
 import arrow.core.getOrElse
 import com.github.pgreze.process.process
-import io.ktor.network.sockets.*
-import kotlinx.coroutines.*
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -12,10 +14,11 @@ import okio.buffer
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
 import simpleJson.asString
-import simpleJson.deserialize
+import simpleJson.deserialized
 import simpleJson.get
+import unmaskedLeague.proxies.ChatProxy
+import unmaskedLeague.proxies.LeagueProxyClient
 import javax.swing.JOptionPane
-
 
 val hosts = mapOf(
     "BR" to LcdsHost("feapp.br1.lol.pvp.net", 2099),
@@ -29,7 +32,7 @@ val hosts = mapOf(
     "TR" to LcdsHost("prod.tr.lol.riotgames.com", 2099),
 )
 
-val proxyHosts = mutableMapOf<String,LcdsHost>()
+val proxyHosts = mutableMapOf<String, LcdsHost>()
 
 val yamlOptions = DumperOptions().apply {
     defaultFlowStyle = DumperOptions.FlowStyle.BLOCK // Optional
@@ -37,22 +40,25 @@ val yamlOptions = DumperOptions().apply {
 val yaml = Yaml(yamlOptions)
 
 
-
 data class LcdsHost(val host: String, val port: Int)
 
 fun main(): Unit = SuspendApp {
     runCatching {
         proxies().forEach { launch { it.start() } }
-        startClient()
+        val path = rewriteYaml()
+        launch { startClient(path) }
+        ChatProxy.start()
     }.onFailure {
         if (it is LeagueNotFoundException)
-        showLeagueNotFound(it.message ?: "")
+            showLeagueNotFound(it.message ?: "")
+        else
+            it.printStackTrace()
         cancel()
     }
     awaitCancellation()
 }
 
-private fun proxies() =  hosts.map { (region, lcds) ->
+private fun proxies() = hosts.map { (region, lcds) ->
     val proxyClient = LeagueProxyClient(lcds.host, lcds.port)
     val port = proxyClient.serverSocket.localAddress.port
     proxyHosts[region] = LcdsHost("127.0.0.1", port)
@@ -60,7 +66,7 @@ private fun proxies() =  hosts.map { (region, lcds) ->
     proxyClient
 }
 
-private suspend fun startClient() = coroutineScope {
+private suspend fun rewriteYaml(): String = coroutineScope {
     val lolClientInstalls: Path = System.getenv("ALLUSERSPROFILE")
         ?.let { "$it/Riot Games/Metadata/league_of_legends.live/league_of_legends.live.product_settings.yaml" }
         ?.toPath(true)
@@ -73,7 +79,7 @@ private suspend fun startClient() = coroutineScope {
         ?.takeIf { FileSystem.SYSTEM.exists(it) }
         ?: throw LeagueNotFoundException("Cannot find Riot Client Installs (ALLUSERSPROFILE)")
 
-    val riotClientInstallsJson = FileSystem.SYSTEM.source(riotClientInstalls).buffer().readUtf8().deserialize()
+    val riotClientInstallsJson = FileSystem.SYSTEM.source(riotClientInstalls).buffer().readUtf8().deserialized()
     val riotClientPath = riotClientInstallsJson["rc_live"].asString()
         .getOrElse { throw LeagueNotFoundException("Cannot find property rc_live") }
 
@@ -99,17 +105,22 @@ private suspend fun startClient() = coroutineScope {
 
     FileSystem.SYSTEM.sink(systemYamlPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
 
-    process(riotClientPath, "--launch-product=league_of_legends", "--launch-patchline=live", "--allow-multiple-clients")
+    riotClientPath
+}
+
+suspend fun startClient(riotClientPath: String) = coroutineScope {
+    ChatProxy.ready.join()
+
+    process(
+        riotClientPath,
+        "--launch-product=league_of_legends",
+        "--launch-patchline=live",
+        "--client-config-url=\"http://127.0.0.1:${ChatProxy.port}\"",
+        "--allow-multiple-clients"
+    )
     cancel("League closed")
 }
 
-private fun showLeagueNotFound(msg : String) =
+private fun showLeagueNotFound(msg: String) =
     JOptionPane.showMessageDialog(null, msg, "League Not Found", JOptionPane.ERROR_MESSAGE);
-
-private fun Any?.getMap(s: String) = (this as Map<String, Any?>)[s] as Map<String, Any?>
-private val SocketAddress.port: Int
-    get() = when (this) {
-        is InetSocketAddress -> port
-        else -> throw IllegalStateException("SocketAddress is not an InetSocketAddress")
-    }
 

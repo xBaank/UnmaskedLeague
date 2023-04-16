@@ -1,12 +1,11 @@
 package unmaskedLeague
 
-import arrow.continuations.SuspendApp
 import arrow.core.getOrElse
 import com.github.pgreze.process.process
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -19,49 +18,46 @@ import simpleJson.get
 import unmaskedLeague.proxies.ChatProxy
 import unmaskedLeague.proxies.LeagueProxyClient
 import javax.swing.JOptionPane
+import kotlin.system.exitProcess
 
 val hosts = mapOf(
-    "BR" to LcdsHost("feapp.br1.lol.pvp.net", 2099),
-    "EUNE" to LcdsHost("prod.eun1.lol.riotgames.com", 2099),
-    "EUW" to LcdsHost("feapp.euw1.lol.pvp.net", 2099),
-    "JP" to LcdsHost("feapp.jp1.lol.pvp.net", 2099),
-    "LA1" to LcdsHost("feapp.la1.lol.pvp.net", 2099),
-    "LA2" to LcdsHost("feapp.la2.lol.pvp.net", 2099),
-    "NA" to LcdsHost("feapp.na1.lol.pvp.net", 2099),
-    "OC1" to LcdsHost("feapp.oc1.lol.pvp.net", 2099),
-    "TR" to LcdsHost("prod.tr.lol.riotgames.com", 2099),
+    "BR" to Host("feapp.br1.lol.pvp.net", 2099),
+    "EUNE" to Host("prod.eun1.lol.riotgames.com", 2099),
+    "EUW" to Host("feapp.euw1.lol.pvp.net", 2099),
+    "JP" to Host("feapp.jp1.lol.pvp.net", 2099),
+    "LA1" to Host("feapp.la1.lol.pvp.net", 2099),
+    "LA2" to Host("feapp.la2.lol.pvp.net", 2099),
+    "NA" to Host("feapp.na1.lol.pvp.net", 2099),
+    "OC1" to Host("feapp.oc1.lol.pvp.net", 2099),
+    "TR" to Host("prod.tr.lol.riotgames.com", 2099),
 )
 
-val proxyHosts = mutableMapOf<String, LcdsHost>()
+val proxyHosts = mutableMapOf<String, Host>()
 
 val yamlOptions = DumperOptions().apply {
     defaultFlowStyle = DumperOptions.FlowStyle.BLOCK // Optional
 }
 val yaml = Yaml(yamlOptions)
 
+data class Host(val host: String, val port: Int)
 
-data class LcdsHost(val host: String, val port: Int)
-
-fun main(): Unit = SuspendApp {
+fun main(): Unit = runBlocking {
     runCatching {
         proxies().forEach { launch { it.start() } }
         val path = rewriteYaml()
-        launch { startClient(path) }
-        ChatProxy.start()
+        launch { ChatProxy.start() }
+        startClient(path)
     }.onFailure {
         if (it is LeagueNotFoundException)
-            showLeagueNotFound(it.message ?: "")
-        else
-            it.printStackTrace()
-        cancel()
+            showLeagueNotFound(it.message ?: "League not found")
     }
-    awaitCancellation()
+    exitProcess(0)
 }
 
 private fun proxies() = hosts.map { (region, lcds) ->
     val proxyClient = LeagueProxyClient(lcds.host, lcds.port)
     val port = proxyClient.serverSocket.localAddress.port
-    proxyHosts[region] = LcdsHost("127.0.0.1", port)
+    proxyHosts[region] = Host("127.0.0.1", port)
     println("Created proxy for $region on port $port")
     proxyClient
 }

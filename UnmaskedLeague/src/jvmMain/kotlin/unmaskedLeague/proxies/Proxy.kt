@@ -58,10 +58,11 @@ class LeagueProxyClient internal constructor(
     private val host: String,
     private val port: Int
 ) {
+    private val games = mutableSetOf<Long>()
     suspend fun start() = coroutineScope {
         while (isActive) {
             val socket = serverSocket.accept()
-            println("Accepted connection from ${socket.remoteAddress}")
+            println("Accepted connection on lcds proxy from ${socket.remoteAddress}")
             launch(Dispatchers.IO) {
                 handle(socket)
             }
@@ -125,6 +126,19 @@ class LeagueProxyClient internal constructor(
         val json = if (isCompressed) payloadGzip.base64Ungzip() else payloadGzip
         val payload = json.deserialized().getOrElse { throw it } // Can this come in other formats?
 
+        val gameId = payload["gameId"].asLong().getOrNull()
+
+        if (gameId != null && !games.contains(gameId)) {
+            val summonerIds = payload["championSelectState"]["cells"]["alliedTeam"].asArray().getOrNull()?.mapNotNull {
+                it["summonerId"].asLong().getOrNull()
+            } ?: emptyList()
+
+            ChatProxy.sendPlayersOPGGMessage(summonerIds)
+            games.add(gameId)
+        }
+
+
+
         if (payload["queueId"].asInt().getOrNull() != SOLOQ_ID) return@coroutineScope nodes
 
         val localCellID = payload["championSelectState"]["localPlayerCellId"].asInt().getOrNull()
@@ -133,12 +147,6 @@ class LeagueProxyClient internal constructor(
             if (it["cellId"].asInt().getOrNull() == localCellID) return@forEach
             if (it["nameVisibilityType"].isRight()) it["nameVisibilityType"] = "VISIBLE"
         }
-
-        val summonerIds = payload["championSelectState"]["cells"]["alliedTeam"].asArray().getOrNull()?.mapNotNull {
-            it["summonerId"].asLong().getOrNull()
-        } ?: emptyList()
-
-        ChatProxy.sendPlayersOPGGMessage(summonerIds)
 
         val serialized = payload.serialized()
         body["payload"] = if (isCompressed) serialized.gzipBase64().toAmf0String() else serialized.toAmf0String()

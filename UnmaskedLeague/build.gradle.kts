@@ -35,7 +35,8 @@ kotlin {
                 implementation("io.ktor:ktor-network-tls:$ktor_version")
                 implementation("io.ktor:ktor-server-core:$ktor_version")
                 implementation("io.ktor:ktor-server-netty:$ktor_version")
-                implementation("io.arrow-kt:suspendapp:0.4.0")
+                // https://mvnrepository.com/artifact/org.apache.commons/commons-text
+                implementation("org.apache.commons:commons-text:1.10.0")
                 implementation("io.github.xbaank:simpleJson-core:2.0.1")
                 implementation("io.arrow-kt:arrow-core:1.1.5")
                 // https://mvnrepository.com/artifact/org.yaml/snakeyaml

@@ -7,19 +7,43 @@ import okhttp3.Request
 import simpleJson.asString
 import simpleJson.deserialized
 import simpleJson.get
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.X509TrustManager
 
-val httpClient = OkHttpClient.Builder().build()
+
+val trustAllCerts = object : X509TrustManager {
+    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
+    override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+    override fun getAcceptedIssuers(): Array<X509Certificate> {
+        return arrayOf()
+    }
+}
+
+fun trustAllSsl(): SSLSocketFactory {
+    val sslContext = SSLContext.getInstance("SSL")
+    sslContext.init(null, arrayOf(trustAllCerts), SecureRandom())
+    return sslContext.socketFactory
+}
+
+val httpClient = OkHttpClient.Builder()
+    .sslSocketFactory(trustAllSsl(), trustAllCerts)
+    .hostnameVerifier { _, _ -> true }
+    .build()
 
 
 fun getSummonerNameById(summonerId: Long, leagueAuth: LeagueAuth): String {
-    val url = "https://localhost:${leagueAuth.port}/lol-summoner/v1/summoners/$summonerId"
+    val url = "https://127.0.0.1:${leagueAuth.port}/lol-summoner/v1/summoners/$summonerId"
     val request = Request.Builder()
         .header("Authorization", basicAuthHeader(leagueAuth.username, leagueAuth.password))
         .get()
         .url(url)
         .build()
     val response = httpClient.newCall(request).execute()
-    return response.body!!.source().deserialized()["displayName"].asString().getOrElse { throw it }
+    if (!response.isSuccessful) return ""
+    return response.body!!.string().deserialized()["internalName"].asString().getOrElse { "" }
 }
 
 private fun basicAuthHeader(user: String, pass: String): String {

@@ -34,7 +34,7 @@ val httpClient = OkHttpClient.Builder()
     .build()
 
 
-fun getSummonerNameById(summonerId: Long, leagueAuth: LeagueAuth): String {
+fun getSummonerNameById(summonerId: Long, leagueAuth: LeagueAuth): String? {
     val url = "https://127.0.0.1:${leagueAuth.port}/lol-summoner/v1/summoners/$summonerId"
     val request = Request.Builder()
         .header("Authorization", basicAuthHeader(leagueAuth.username, leagueAuth.password))
@@ -42,8 +42,9 @@ fun getSummonerNameById(summonerId: Long, leagueAuth: LeagueAuth): String {
         .url(url)
         .build()
     val response = httpClient.newCall(request).execute()
-    if (!response.isSuccessful) return ""
-    return response.body!!.string().deserialized()["internalName"].asString().getOrElse { "" }
+    if (!response.isSuccessful) return null
+    val json = response.body!!.string().deserialized()
+    return json["internalName"].asString().getOrNull() ?: json["displayName"].asString().getOrElse { null }
 }
 
 private fun basicAuthHeader(user: String, pass: String): String {

@@ -36,7 +36,7 @@ suspend fun leagueAuth(): LeagueAuth {
 
         if (region == null || port == null || password == null) {
             retries++
-            delay(2.seconds)
+            delay(1.seconds)
             continue
         }
 

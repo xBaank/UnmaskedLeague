@@ -16,6 +16,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import okhttp3.Request
+import org.apache.commons.text.StringEscapeUtils
 import simpleJson.*
 import unmaskedLeague.*
 import java.net.URLEncoder
@@ -51,10 +52,24 @@ object ChatProxy {
         messages.emit(message)
     }
 
-    private suspend fun createOPGGMultisearchMessage(playersIds: List<Long>): String = coroutineScope {
-        val names = playersIds.map { async(Dispatchers.IO) { getSummonerNameById(it, leagueAuth) } }.awaitAll()
+    private fun xmppMessage(message: String): String {
         val stamp = LocalDateTime.now(ZoneOffset.UTC).plusSeconds(1)
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))
+
+        return """<message from='41c322a1-b328-495b-a004-5ccd3e45eae8@eu1.pvp.net/UnmaskedLeague' stamp='$stamp' id='fake-$stamp' type='chat'>
+                  <body>${StringEscapeUtils.escapeXml11(message)}</body>
+                </message>"""
+    }
+
+    private suspend fun createOPGGMultisearchMessage(playersIds: List<Long>): String = coroutineScope {
+        val names = playersIds.map { async(Dispatchers.IO) { getSummonerNameById(it, leagueAuth) } }.awaitAll()
+
+
+
+        if (names.any { it == null }) {
+            return@coroutineScope xmppMessage("Error getting summoner names")
+        }
+
 
         val bodyMessage =
             """https://www.op.gg/multisearch/${leagueAuth.region}?summoners=${
@@ -64,13 +79,7 @@ object ChatProxy {
                 )
             }"""
 
-        val message = """
-        <message from='41c322a1-b328-495b-a004-5ccd3e45eae8@eu1.pvp.net/UnmaskedLeague' stamp='$stamp' id='fake-$stamp' type='chat'>
-          <body>$bodyMessage</body>
-        </message>
-                  """
-
-        message
+        xmppMessage(bodyMessage)
     }
 
     private suspend fun startChatProxy(serverSocket: ServerSocket) = coroutineScope {

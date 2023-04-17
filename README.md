@@ -24,6 +24,9 @@ Java 8 or higher.
 ## OP.GG Version
 
 For an op.gg version you can
-download ![UnmaskedLeague 2.0.0-SNAPSHOT](https://github.com/xBaank/UnmaskedLeague/releases/tag/2.0.0-SNAPSHOT)
-You will receive a message with the op.gg link whenever you join a lobby
+download ![UnmaskedLeague 2.0.0-SNAPSHOT](https://github.com/xBaank/UnmaskedLeague/releases/tag/2.0.0-SNAPSHOT).
+> **Warning** It's not fully developed so it may contain bugs or unexpected behavior
+
+You will receive a message with the op.gg link whenever you join a lobby.
+
 ![Opgg](.assets/Opgg.png)

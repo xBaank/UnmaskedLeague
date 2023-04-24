@@ -1,7 +1,7 @@
 import org.gradle.jvm.tasks.Jar
 
 plugins {
-    kotlin("multiplatform") version "1.7.20"
+    kotlin("multiplatform") version "1.8.20"
 }
 
 repositories {
@@ -13,6 +13,10 @@ val kotlinProcessVersion: String by project
 kotlin {
     jvm {
         withJava()
+        java {
+            sourceCompatibility = JavaVersion.VERSION_1_8
+            targetCompatibility = JavaVersion.VERSION_1_8
+        }
         compilations.all {
             kotlinOptions {
                 jvmTarget = "1.8"
@@ -34,7 +38,7 @@ kotlin {
                 implementation("io.ktor:ktor-network:$ktor_version")
                 implementation("io.ktor:ktor-network-tls:$ktor_version")
                 implementation("io.arrow-kt:suspendapp:0.4.0")
-                implementation("io.github.xbaank:simpleJson-core:1.0.1")
+                implementation("io.github.xbaank:simpleJson-core:2.1.1")
                 implementation("io.arrow-kt:arrow-core:1.1.5")
                 // https://mvnrepository.com/artifact/org.yaml/snakeyaml
                 implementation("org.yaml:snakeyaml:2.0")

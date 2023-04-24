@@ -121,7 +121,7 @@ class LeagueProxyClient internal constructor(
         val payloadGzip = body["payload"].toAmf0String()?.value ?: return nodes
 
         val json = if (isCompressed) payloadGzip.base64Ungzip() else payloadGzip
-        val payload = json.deserialize().getOrElse { throw it } // Can this come in other formats?
+        val payload = json.deserialized().getOrElse { throw it } // Can this come in other formats?
 
         if (payload["queueId"].asInt().getOrNull() != SOLOQ_ID) return nodes
 
@@ -132,7 +132,7 @@ class LeagueProxyClient internal constructor(
             if (it["nameVisibilityType"].isRight()) it["nameVisibilityType"] = "VISIBLE"
         }
 
-        val serialized = payload.serialize()
+        val serialized = payload.serialized()
         body["payload"] = if (isCompressed) serialized.gzipBase64().toAmf0String() else serialized.toAmf0String()
 
         return nodes

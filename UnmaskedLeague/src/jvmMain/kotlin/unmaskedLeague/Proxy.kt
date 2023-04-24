@@ -66,13 +66,13 @@ class LeagueProxyClient internal constructor(
         }
     }
 
-    private suspend fun handle(socket: Socket) {
+    private suspend fun handle(socket: Socket) = coroutineScope {
         runCatching {
             handleSocket(socket)
         }.onFailure {
             when (it) {
-                is ClosedReceiveChannelException -> return
-                is CancellationException -> return
+                is ClosedReceiveChannelException -> return@coroutineScope
+                is CancellationException -> return@coroutineScope
                 else -> throw it
             }
         }

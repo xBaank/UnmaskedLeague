@@ -1,13 +1,12 @@
 package unmaskedLeague
 
-import arrow.continuations.SuspendApp
 import arrow.core.getOrElse
 import com.github.pgreze.process.process
 import io.ktor.network.sockets.*
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -18,6 +17,7 @@ import simpleJson.asString
 import simpleJson.deserialized
 import simpleJson.get
 import javax.swing.JOptionPane
+import kotlin.system.exitProcess
 
 
 val hosts = mapOf(
@@ -42,16 +42,15 @@ val yaml = Yaml(yamlOptions)
 
 data class LcdsHost(val host: String, val port: Int)
 
-fun main(): Unit = SuspendApp {
+fun main(): Unit = runBlocking {
     runCatching {
         proxies().forEach { launch { it.start() } }
         startClient()
     }.onFailure {
         if (it is LeagueNotFoundException)
             showLeagueNotFound(it.message ?: "")
-        cancel()
     }
-    awaitCancellation()
+    exitProcess(0)
 }
 
 private fun proxies() = hosts.map { (region, lcds) ->

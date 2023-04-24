@@ -1,4 +1,4 @@
 allprojects {
     group = "io.github.xbaank"
-    version = "1.1.0"
+    version = "1.1.1"
 }

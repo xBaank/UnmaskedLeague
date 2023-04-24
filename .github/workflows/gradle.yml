@@ -10,6 +10,7 @@ name: Java CI with Gradle
 on:
   push:
     branches: ["*"]
+    tags: ["*"]
   pull_request:
     branches: ["*"]
 

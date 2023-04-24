@@ -1,4 +1,4 @@
-# UnmaskedLeague
+# UnmaskedLeague [![Java CI with Gradle](https://github.com/xBaank/UnmaskedLeague/actions/workflows/gradle_artifact.yml/badge.svg)](https://github.com/xBaank/UnmaskedLeague/actions/workflows/gradle_artifact.yml)
 
 > **Note**
 > This exploit was discovered by [Hawolt](https://github.com/hawolt), You can check his version

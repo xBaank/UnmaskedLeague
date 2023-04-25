@@ -3,6 +3,7 @@ package unmaskedLeague
 import arrow.core.getOrElse
 import com.github.pgreze.process.process
 import io.ktor.network.sockets.*
+import io.ktor.utils.io.*
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -49,6 +50,10 @@ fun main(): Unit = runBlocking {
     }.onFailure {
         if (it is LeagueNotFoundException)
             showLeagueNotFound(it.message ?: "")
+        else {
+            showError(it.stackTraceToString(), it.message ?: "An error happened")
+            it.printStack()
+        }
     }
     exitProcess(0)
 }
@@ -106,6 +111,8 @@ private suspend fun startClient() = coroutineScope {
 
 private fun showLeagueNotFound(msg: String) =
     JOptionPane.showMessageDialog(null, msg, "League Not Found", JOptionPane.ERROR_MESSAGE);
+private fun showError(msg: String, error : String = "An error happened") =
+    JOptionPane.showMessageDialog(null, msg, error, JOptionPane.ERROR_MESSAGE);
 
 private fun Any?.getMap(s: String) = (this as Map<String, Any?>)[s] as Map<String, Any?>
 private val SocketAddress.port: Int

@@ -4,10 +4,7 @@ import arrow.core.getOrElse
 import com.github.pgreze.process.process
 import io.ktor.network.sockets.*
 import io.ktor.utils.io.*
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -18,6 +15,7 @@ import simpleJson.asString
 import simpleJson.deserialized
 import simpleJson.get
 import javax.swing.JOptionPane
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.system.exitProcess
 
 
@@ -45,14 +43,23 @@ data class LcdsHost(val host: String, val port: Int)
 
 fun main(): Unit = runBlocking {
     runCatching {
-        proxies().forEach { launch { it.start() } }
+        proxies().forEach { launch(Dispatchers.IO) { it.start() } }
         startClient()
     }.onFailure {
-        if (it is LeagueNotFoundException)
-            showLeagueNotFound(it.message ?: "")
-        else {
-            showError(it.stackTraceToString(), it.message ?: "An error happened")
-            it.printStack()
+        when (it) {
+            is LeagueNotFoundException -> {
+                showLeagueNotFound(it.message ?: "")
+                return@onFailure
+            }
+
+            is CancellationException -> {
+                return@onFailure
+            }
+
+            else -> {
+                showError(it.stackTraceToString(), it.message ?: "An error happened")
+                it.printStack()
+            }
         }
     }
     exitProcess(0)
@@ -111,7 +118,8 @@ private suspend fun startClient() = coroutineScope {
 
 private fun showLeagueNotFound(msg: String) =
     JOptionPane.showMessageDialog(null, msg, "League Not Found", JOptionPane.ERROR_MESSAGE);
-private fun showError(msg: String, error : String = "An error happened") =
+
+private fun showError(msg: String, error: String = "An error happened") =
     JOptionPane.showMessageDialog(null, msg, error, JOptionPane.ERROR_MESSAGE);
 
 private fun Any?.getMap(s: String) = (this as Map<String, Any?>)[s] as Map<String, Any?>

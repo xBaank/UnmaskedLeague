@@ -21,7 +21,7 @@ import kotlin.system.exitProcess
 
 val hosts = mapOf(
     "BR" to LcdsHost("feapp.br1.lol.pvp.net", 2099),
-    "EUNE" to LcdsHost("prod.eun1.lol.riotgames.com", 2099),
+    "EUNE" to LcdsHost("feapp.eun1.lol.pvp.net", 2099),
     "EUW" to LcdsHost("feapp.euw1.lol.pvp.net", 2099),
     "JP" to LcdsHost("feapp.jp1.lol.pvp.net", 2099),
     "LA1" to LcdsHost("feapp.la1.lol.pvp.net", 2099),

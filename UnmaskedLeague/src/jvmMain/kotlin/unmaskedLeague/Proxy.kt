@@ -59,7 +59,7 @@ class LeagueProxyClient internal constructor(
     suspend fun start() = coroutineScope {
         while (isActive) {
             val socket = serverSocket.accept()
-            println("Accepted connection from ${socket.remoteAddress}")
+            println("Accepted connection from ${socket.remoteAddress} in ${socket.localAddress}")
             launch(Dispatchers.IO) {
                 handle(socket)
             }

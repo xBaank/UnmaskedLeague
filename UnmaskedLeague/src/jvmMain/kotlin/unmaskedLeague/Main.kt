@@ -14,6 +14,8 @@ import org.yaml.snakeyaml.Yaml
 import simpleJson.asString
 import simpleJson.deserialized
 import simpleJson.get
+import java.nio.file.Files
+import java.util.concurrent.TimeUnit
 import javax.swing.JOptionPane
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.system.exitProcess
@@ -95,6 +97,15 @@ private suspend fun startClient() = coroutineScope {
     val yamlMap = yaml.load<Map<String, Any>>(file.readUtf8())
     val lolPath: String = yamlMap["product_install_full_path"] as String
     val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
+
+    val fileTime =
+        (Files.getLastModifiedTime(systemYamlPath.toFile().toPath())
+            .to(TimeUnit.NANOSECONDS)
+            .toULong() + 11644473600.toULong() * 1000.toULong() * 1000.toULong() * 1000.toULong()) / 100.toULong()
+    val size = Files.size(systemYamlPath.toFile().toPath())
+    println(fileTime)
+    println(size)
+    println()
 
     val systemYaml = FileSystem.SYSTEM.source(systemYamlPath)
         .buffer()

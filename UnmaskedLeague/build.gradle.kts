@@ -45,6 +45,7 @@ kotlin {
                 // Check the 🔝 maven central badge 🔝 for the latest $kotlinProcessVersion
                 implementation("com.github.pgreze:kotlin-process:$kotlinProcessVersion")
                 implementation(project(":Rtmp"))
+                implementation(project(":Patcher"))
             }
         }
         val commonTest by getting {

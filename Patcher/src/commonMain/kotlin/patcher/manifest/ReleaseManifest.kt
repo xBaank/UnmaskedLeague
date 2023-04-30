@@ -11,6 +11,7 @@ class ReleaseManifest(val input: FileInputStream) {
     val dataStream = DataInputStream(input)
     val body: ReleaseManifestBody
 
+
     init {
         dataStream.use {
             val magicBuffer = ByteArray(4)
@@ -26,23 +27,45 @@ class ReleaseManifest(val input: FileInputStream) {
             if (major != 2.toByte())
                 throw Exception("Unsupported manifest version: $major.$minor")
 
-            val unknown = dataStream.readByte()
-            if (unknown != 0.toByte())
-                throw Exception("Unknown byte: $unknown")
+            repeat(2) { dataStream.readByte() }
 
-            val signatureType = dataStream.readByte()
-            val contentOffset = dataStream.readInt().toUInt();
-            val compressedSize = dataStream.readInt().toUInt();
-            val id = dataStream.readLong().toULong()
-            val uncompressedSize = dataStream.readInt().toUInt()
+            val contentOffset = dataStream.readInt().toLittleEndian()
+            val compressedSize = dataStream.readInt().toLittleEndian()
+            val id = dataStream.readLong().toLittleEndian()
+            val uncompressedSize = dataStream.readInt().toLittleEndian()
 
             input.channel.position(contentOffset.toLong())
 
-            val compressedFile = ByteArray(compressedSize.toInt())
+            val compressedFile = ByteArray(compressedSize)
             dataStream.readFully(compressedFile)
 
-            val uncompressedFile = decompress(compressedFile, uncompressedSize.toInt())
+            val uncompressedFile = decompress(compressedFile, uncompressedSize)
             body = ReleaseManifestBody.getRootAsReleaseManifestBody(ByteBuffer.wrap(uncompressedFile))
+            repeat(body.bundlesLength) {
+                val file = body.bundles(it)
+                println(file?.id)
+            }
+            println("finished")
         }
     }
+
+    fun Int.toLittleEndian(): Int {
+        return ((this and 0xff) shl 24) or
+                (((this shr 8) and 0xff) shl 16) or
+                (((this shr 16) and 0xff) shl 8) or
+                ((this shr 24) and 0xff)
+    }
+
+    fun Long.toLittleEndian(): Long {
+        return ((this and 0xff) shl 56) or
+                (((this shr 8) and 0xff) shl 48) or
+                (((this shr 16) and 0xff) shl 40) or
+                (((this shr 24) and 0xff) shl 32) or
+                (((this shr 32) and 0xff) shl 24) or
+                (((this shr 40) and 0xff) shl 16) or
+                (((this shr 48) and 0xff) shl 8) or
+                ((this shr 56) and 0xff)
+    }
+
+
 }

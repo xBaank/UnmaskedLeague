@@ -11,9 +11,11 @@ import okio.Path.Companion.toPath
 import okio.buffer
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
+import patcher.manifest.ReleaseManifest
 import simpleJson.asString
 import simpleJson.deserialized
 import simpleJson.get
+import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 import javax.swing.JOptionPane
@@ -44,6 +46,11 @@ val yaml = Yaml(yamlOptions)
 data class LcdsHost(val host: String, val port: Int)
 
 fun main(): Unit = runBlocking {
+    val manifestStream =
+        File("""C:\ProgramData\Riot Games\Metadata\league_of_legends.live\league_of_legends.live.manifest""").inputStream()
+    val releaseManifest = ReleaseManifest(manifestStream)
+
+    println(releaseManifest)
     runCatching {
         proxies().forEach { launch(Dispatchers.IO) { it.start() } }
         startClient()

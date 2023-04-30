@@ -20,13 +20,3 @@ Java 8 or higher.
 > **Warning**
 > If you have issues with the client, it may need to be updated. To do that just launch the client without using the
 > jar.
-
-## OP.GG Version
-
-For an op.gg version you can
-download ![UnmaskedLeague 2.0.0-SNAPSHOT](https://github.com/xBaank/UnmaskedLeague/releases/tag/2.0.0-SNAPSHOT).
-> **Warning** It's not fully developed so it may contain bugs or unexpected behavior
-
-You will receive a message with the op.gg link whenever you join a lobby.
-
-![Opgg](.assets/Opgg.png)

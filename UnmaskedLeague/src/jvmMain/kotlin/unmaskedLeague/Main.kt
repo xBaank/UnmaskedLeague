@@ -16,32 +16,41 @@ import org.yaml.snakeyaml.Yaml
 import simpleJson.asString
 import simpleJson.deserialized
 import simpleJson.get
-import java.io.File
-import java.io.FileOutputStream
 import javax.swing.JOptionPane
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.system.exitProcess
 
 
 val proxyHosts = mutableMapOf<String, LcdsHost>()
-
-val yamlOptions = DumperOptions().apply {
-    defaultFlowStyle = DumperOptions.FlowStyle.BLOCK // Optional
-}
+val yamlOptions = DumperOptions().apply { defaultFlowStyle = DumperOptions.FlowStyle.BLOCK }
 val yaml = Yaml(yamlOptions)
+
+val unmaskedLeaguePath by lazy {
+    val appdata = System.getenv("APPDATA") ?: throw IllegalStateException("Cannot find APPDATA")
+    val path = "$appdata/UnmaskedLeague"
+    FileSystem.SYSTEM.createDirectory(path.toPath(true))
+    path
+}
 
 
 data class LcdsHost(val host: String, val port: Int)
 
 fun main(): Unit = runBlocking {
     runCatching {
-        val hosts = getHosts()
-        proxies(hosts).forEach { launch(Dispatchers.IO) { it.start() } }
-        startClient(hosts)
+        withLockFile(unmaskedLeaguePath) {
+            val hosts = getHosts()
+            proxies(hosts).forEach { launch(Dispatchers.IO) { it.start() } }
+            startClient(hosts)
+        }
     }.onFailure {
         when (it) {
             is LeagueNotFoundException -> {
                 showError(it.message ?: "", "League of Legends not found")
+                return@onFailure
+            }
+
+            is LeagueAlreadyRunningException -> {
+                println("League is already running")
                 return@onFailure
             }
 
@@ -153,20 +162,25 @@ suspend fun downloadLatestSystemYaml(lolPath: String) {
     //if it is windows we can use ManifestDownloader to get the latest system.yaml
     if (!System.getProperty("os.name").contains("win", true)) return
 
-    val path = object {}::class.java.getResourceAsStream("/ManifestDownloader.exe")
+    val manifestDownloader = object {}::class.java.getResourceAsStream("/ManifestDownloader.exe")
         ?: throw IllegalStateException("Cannot find ManifestDownloader.exe")
 
-    //write to temp file, because ManifestDownloader.exe cannot be run from a jar
-    val tempFile = File.createTempFile("ManifestDownloader", ".exe")
-    tempFile.deleteOnExit()
-    path.use { input ->
-        FileOutputStream(tempFile).use { output ->
-            input.copyTo(output)
+    val path = "${unmaskedLeaguePath}/ManifestDownloader.exe".toPath(true)
+    val exists = FileSystem.SYSTEM.exists(path)
+    val size = if (exists) FileSystem.SYSTEM.metadata(path).size else 0L
+
+    //Check for manifest downloader
+    if (!exists || size != manifestDownloader.available().toLong()) {
+        println("Recreating ManifestDownloader.exe")
+        val file = FileSystem.SYSTEM.sink(path).buffer()
+        manifestDownloader.use { input ->
+            file.outputStream().use {
+                input.copyTo(it)
+            }
         }
     }
 
-    val patchline = latestManifest()
-    process(tempFile.path, patchline, "-o", lolPath, "--filter", "system.yaml", destroyForcibly = true)
+    process(path.toString(), latestManifest(), "-o", lolPath, "--filter", "system.yaml", destroyForcibly = true)
 }
 
 fun latestManifest(): String {
@@ -182,4 +196,17 @@ fun latestManifest(): String {
         manifest["keystone.products.league_of_legends.patchlines.live"]["platforms"]["win"]["configurations"][0]["patch_url"]
 
     return patchline.asString().getOrElse { throw it }
+}
+
+inline fun withLockFile(path: String, block: () -> Unit) {
+    val lockfile = "$path/lockfile"
+    if (FileSystem.SYSTEM.exists(lockfile.toPath())) throw LeagueAlreadyRunningException("Lockfile exists")
+    try {
+        FileSystem.SYSTEM.sink(lockfile.toPath()).buffer().use {
+            it.writeUtf8("lockfile")
+            block()
+        }
+    } finally {
+        FileSystem.SYSTEM.delete("$path/lockfile".toPath())
+    }
 }

@@ -5,35 +5,23 @@ import com.github.pgreze.process.process
 import io.ktor.network.sockets.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
 import okio.buffer
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
-import patcher.manifest.ReleaseManifest
 import simpleJson.asString
 import simpleJson.deserialized
 import simpleJson.get
 import java.io.File
-import java.nio.file.Files
-import java.util.concurrent.TimeUnit
+import java.io.FileOutputStream
 import javax.swing.JOptionPane
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.system.exitProcess
 
-
-val hosts = mapOf(
-    "BR" to LcdsHost("feapp.br1.lol.pvp.net", 2099),
-    "EUNE" to LcdsHost("feapp.eun1.lol.pvp.net", 2099),
-    "EUW" to LcdsHost("feapp.euw1.lol.pvp.net", 2099),
-    "JP" to LcdsHost("feapp.jp1.lol.pvp.net", 2099),
-    "LA1" to LcdsHost("feapp.la1.lol.pvp.net", 2099),
-    "LA2" to LcdsHost("feapp.la2.lol.pvp.net", 2099),
-    "NA" to LcdsHost("feapp.na1.lol.pvp.net", 2099),
-    "OC1" to LcdsHost("feapp.oc1.lol.pvp.net", 2099),
-    "TR" to LcdsHost("prod.tr.lol.riotgames.com", 2099),
-)
 
 val proxyHosts = mutableMapOf<String, LcdsHost>()
 
@@ -46,18 +34,14 @@ val yaml = Yaml(yamlOptions)
 data class LcdsHost(val host: String, val port: Int)
 
 fun main(): Unit = runBlocking {
-    val manifestStream =
-        File("""C:\ProgramData\Riot Games\Metadata\league_of_legends.live\league_of_legends.live.manifest""").inputStream()
-    val releaseManifest = ReleaseManifest(manifestStream)
-
-    println(releaseManifest)
     runCatching {
-        proxies().forEach { launch(Dispatchers.IO) { it.start() } }
-        startClient()
+        val hosts = getHosts()
+        proxies(hosts).forEach { launch(Dispatchers.IO) { it.start() } }
+        startClient(hosts)
     }.onFailure {
         when (it) {
             is LeagueNotFoundException -> {
-                showLeagueNotFound(it.message ?: "")
+                showError(it.message ?: "", "League of Legends not found")
                 return@onFailure
             }
 
@@ -74,7 +58,7 @@ fun main(): Unit = runBlocking {
     exitProcess(0)
 }
 
-private fun proxies() = hosts.map { (region, lcds) ->
+private fun proxies(hosts: Map<String, LcdsHost>) = hosts.map { (region, lcds) ->
     val proxyClient = LeagueProxyClient(lcds.host, lcds.port)
     val port = proxyClient.serverSocket.localAddress.port
     proxyHosts[region] = LcdsHost("127.0.0.1", port)
@@ -82,7 +66,36 @@ private fun proxies() = hosts.map { (region, lcds) ->
     proxyClient
 }
 
-private suspend fun startClient() = coroutineScope {
+private suspend fun startClient(hosts: Map<String, LcdsHost>) = coroutineScope {
+    val (riotClientPath, lolPath) = getLolPaths()
+    val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
+    val systemYaml = FileSystem.SYSTEM.source(systemYamlPath)
+        .buffer()
+
+    val systemYamlMap = systemYaml.use { yaml.load<Map<String, Any>>(systemYaml.readUtf8()) }
+
+    systemYamlMap.getMap("region_data").forEach {
+        val region = it.key
+        if (!hosts.containsKey(region)) return@forEach
+        val lcds = it.value.getMap("servers").getMap("lcds") as MutableMap<String, Any?>
+        lcds["lcds_host"] = proxyHosts[region]!!.host
+        lcds["lcds_port"] = proxyHosts[region]!!.port
+        lcds["use_tls"] = false
+    }
+
+    FileSystem.SYSTEM.sink(systemYamlPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
+
+    process(
+        riotClientPath,
+        "--launch-product=league_of_legends",
+        "--launch-patchline=live",
+        "--disable-patching",
+        destroyForcibly = true
+    )
+    cancel("League closed")
+}
+
+private fun getLolPaths(): Pair<String, String> {
     val lolClientInstalls: Path = System.getenv("ALLUSERSPROFILE")
         ?.let { "$it/Riot Games/Metadata/league_of_legends.live/league_of_legends.live.product_settings.yaml" }
         ?.toPath(true)
@@ -103,42 +116,30 @@ private suspend fun startClient() = coroutineScope {
 
     val yamlMap = yaml.load<Map<String, Any>>(file.readUtf8())
     val lolPath: String = yamlMap["product_install_full_path"] as String
+    return Pair(riotClientPath, lolPath)
+}
+
+suspend fun getHosts(): Map<String, LcdsHost> {
+    val (_, lolPath) = getLolPaths()
+    downloadLatestSystemYaml(lolPath)
     val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
-
-    val fileTime =
-        (Files.getLastModifiedTime(systemYamlPath.toFile().toPath())
-            .to(TimeUnit.NANOSECONDS)
-            .toULong() + 11644473600.toULong() * 1000.toULong() * 1000.toULong() * 1000.toULong()) / 100.toULong()
-    val size = Files.size(systemYamlPath.toFile().toPath())
-    println(fileTime)
-    println(size)
-    println()
-
     val systemYaml = FileSystem.SYSTEM.source(systemYamlPath)
         .buffer()
 
     val systemYamlMap = systemYaml.use { yaml.load<Map<String, Any>>(systemYaml.readUtf8()) }
-
+    val hosts = mutableMapOf<String, LcdsHost>()
     systemYamlMap.getMap("region_data").forEach {
         val region = it.key
-        if (!hosts.containsKey(region)) return@forEach
         val lcds = it.value.getMap("servers").getMap("lcds") as MutableMap<String, Any?>
-        lcds["lcds_host"] = proxyHosts[region]!!.host
-        lcds["lcds_port"] = proxyHosts[region]!!.port
-        lcds["use_tls"] = false
+        val host = lcds["lcds_host"] as String
+        val port = lcds["lcds_port"] as Int
+        hosts[region] = LcdsHost(host, port)
     }
-
-    FileSystem.SYSTEM.sink(systemYamlPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
-
-    process(riotClientPath, "--launch-product=league_of_legends", "--launch-patchline=live", "--allow-multiple-clients")
-    cancel("League closed")
+    return hosts
 }
 
-private fun showLeagueNotFound(msg: String) =
-    JOptionPane.showMessageDialog(null, msg, "League Not Found", JOptionPane.ERROR_MESSAGE);
-
-private fun showError(msg: String, error: String = "An error happened") =
-    JOptionPane.showMessageDialog(null, msg, error, JOptionPane.ERROR_MESSAGE);
+private fun showError(msg: String, title: String) =
+    JOptionPane.showMessageDialog(null, msg, title, JOptionPane.ERROR_MESSAGE);
 
 private fun Any?.getMap(s: String) = (this as Map<String, Any?>)[s] as Map<String, Any?>
 private val SocketAddress.port: Int
@@ -147,3 +148,38 @@ private val SocketAddress.port: Int
         else -> throw IllegalStateException("SocketAddress is not an InetSocketAddress")
     }
 
+
+suspend fun downloadLatestSystemYaml(lolPath: String) {
+    //if it is windows we can use ManifestDownloader to get the latest system.yaml
+    if (!System.getProperty("os.name").contains("win", true)) return
+
+    val path = object {}::class.java.getResourceAsStream("/ManifestDownloader.exe")
+        ?: throw IllegalStateException("Cannot find ManifestDownloader.exe")
+
+    //write to temp file, because ManifestDownloader.exe cannot be run from a jar
+    val tempFile = File.createTempFile("ManifestDownloader", ".exe")
+    tempFile.deleteOnExit()
+    path.use { input ->
+        FileOutputStream(tempFile).use { output ->
+            input.copyTo(output)
+        }
+    }
+
+    val patchline = latestManifest()
+    process(tempFile.path, patchline, "-o", lolPath, "--filter", "system.yaml", destroyForcibly = true)
+}
+
+fun latestManifest(): String {
+    val client = OkHttpClient.Builder().build()
+    val request = Request.Builder()
+        .url("https://clientconfig.rpg.riotgames.com/api/v1/config/public?namespace=keystone.products.league_of_legends.patchlines")
+        .build()
+
+    val response = client.newCall(request).execute()
+    val json = response.body?.string() ?: throw IllegalStateException("Cannot get manifest")
+    val manifest = json.deserialized()
+    val patchline =
+        manifest["keystone.products.league_of_legends.patchlines.live"]["platforms"]["win"]["configurations"][0]["patch_url"]
+
+    return patchline.asString().getOrElse { throw it }
+}

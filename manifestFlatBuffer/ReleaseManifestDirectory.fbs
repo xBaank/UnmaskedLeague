@@ -1,8 +1,0 @@
-﻿namespace LeagueToolkit.IO.ReleaseManifestFile;
-
-table ReleaseManifestDirectory
-{
-    ID: ulong;
-    ParentID: ulong;
-    Name: string;
-}

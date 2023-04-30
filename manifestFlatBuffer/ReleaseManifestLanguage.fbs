@@ -1,7 +1,0 @@
-﻿namespace LeagueToolkit.IO.ReleaseManifestFile;
-
-table ReleaseManifestLanguage
-{
-    ID: byte;
-    Name: string;
-}

@@ -1,8 +1,0 @@
-﻿namespace LeagueToolkit.IO.ReleaseManifestFile;
-
-table ReleaseManifestBundleChunk
-{
-    ID: ulong;
-    CompressedSize: uint;
-    UncompressedSize: uint;
-}

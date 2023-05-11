@@ -5,7 +5,6 @@ import com.github.pgreze.process.process
 import io.ktor.network.sockets.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.*
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okio.FileSystem
 import okio.Path
@@ -184,7 +183,7 @@ suspend fun downloadLatestSystemYaml(lolPath: String) {
 }
 
 fun latestManifest(): String {
-    val client = OkHttpClient.Builder().build()
+    val client = getUnsafeOkHttpClient()
     val request = Request.Builder()
         .url("https://clientconfig.rpg.riotgames.com/api/v1/config/public?namespace=keystone.products.league_of_legends.patchlines")
         .build()

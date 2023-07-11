@@ -54,11 +54,6 @@ fun main(): Unit = runBlocking {
                 return@onFailure
             }
 
-            is LeagueAlreadyRunningException -> {
-                showError(it.message ?: "", "League of Legends not found")
-                return@onFailure
-            }
-
             is CancellationException -> {
                 return@onFailure
             }

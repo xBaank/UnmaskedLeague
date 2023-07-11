@@ -36,11 +36,10 @@ data class LcdsHost(val host: String, val port: Int)
 
 fun main(): Unit = runBlocking {
     runCatching {
-        withLockFile(unmaskedLeaguePath) {
-            val hosts = getHosts()
-            proxies(hosts).forEach { launch(Dispatchers.IO) { it.start() } }
-            startClient(hosts)
-        }
+        if (isRiotClientRunning()) killRiotClient()
+        val hosts = getHosts()
+        proxies(hosts).forEach { launch(Dispatchers.IO) { it.start() } }
+        startClient(hosts)
     }.onFailure {
         when (it) {
             is LeagueNotFoundException -> {
@@ -49,7 +48,7 @@ fun main(): Unit = runBlocking {
             }
 
             is LeagueAlreadyRunningException -> {
-                println("League is already running")
+                showError(it.message ?: "", "League of Legends not found")
                 return@onFailure
             }
 
@@ -195,17 +194,4 @@ fun latestManifest(): String {
         manifest["keystone.products.league_of_legends.patchlines.live"]["platforms"]["win"]["configurations"][0]["patch_url"]
 
     return patchline.asString().getOrElse { throw it }
-}
-
-inline fun withLockFile(path: String, block: () -> Unit) {
-    val lockfile = "$path/lockfile"
-    if (FileSystem.SYSTEM.exists(lockfile.toPath())) throw LeagueAlreadyRunningException("Lockfile exists")
-    try {
-        FileSystem.SYSTEM.sink(lockfile.toPath()).buffer().use {
-            it.writeUtf8("lockfile")
-            block()
-        }
-    } finally {
-        FileSystem.SYSTEM.delete("$path/lockfile".toPath())
-    }
 }

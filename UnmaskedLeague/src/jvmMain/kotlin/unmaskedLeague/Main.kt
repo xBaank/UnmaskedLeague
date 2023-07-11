@@ -36,7 +36,14 @@ data class LcdsHost(val host: String, val port: Int)
 
 fun main(): Unit = runBlocking {
     runCatching {
-        if (isRiotClientRunning()) killRiotClient()
+        if (isRiotClientRunning()) {
+            val wantsToClose = askForClose(
+                "Do you want to close it? If you dont close it UnmaskedLeague won't be launched",
+                "Riot Client is already running"
+            )
+            if (wantsToClose) killRiotClient()
+            else return@runCatching
+        }
         val hosts = getHosts()
         proxies(hosts).forEach { launch(Dispatchers.IO) { it.start() } }
         startClient(hosts)
@@ -146,7 +153,16 @@ suspend fun getHosts(): Map<String, LcdsHost> {
 }
 
 private fun showError(msg: String, title: String) =
-    JOptionPane.showMessageDialog(null, msg, title, JOptionPane.ERROR_MESSAGE);
+    JOptionPane.showMessageDialog(null, msg, title, JOptionPane.ERROR_MESSAGE)
+
+private fun askForClose(msg: String, title: String) =
+    JOptionPane.showConfirmDialog(
+        null,
+        msg,
+        title,
+        JOptionPane.YES_NO_OPTION,
+        JOptionPane.ERROR_MESSAGE
+    ) == JOptionPane.YES_OPTION
 
 private fun Any?.getMap(s: String) = (this as Map<String, Any?>)[s] as Map<String, Any?>
 private val SocketAddress.port: Int

@@ -5,7 +5,6 @@ import com.github.pgreze.process.process
 import io.ktor.network.sockets.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.*
-import okhttp3.Request
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -23,14 +22,6 @@ import kotlin.system.exitProcess
 val proxyHosts = mutableMapOf<String, LcdsHost>()
 val yamlOptions = DumperOptions().apply { defaultFlowStyle = DumperOptions.FlowStyle.BLOCK }
 val yaml = Yaml(yamlOptions)
-
-val unmaskedLeaguePath by lazy {
-    val appdata = System.getenv("APPDATA") ?: throw IllegalStateException("Cannot find APPDATA")
-    val path = "$appdata/UnmaskedLeague"
-    FileSystem.SYSTEM.createDirectory(path.toPath(true))
-    path
-}
-
 
 data class LcdsHost(val host: String, val port: Int)
 
@@ -128,9 +119,8 @@ private fun getLolPaths(): Pair<String, String> {
     return Pair(riotClientPath, lolPath)
 }
 
-suspend fun getHosts(): Map<String, LcdsHost> {
+fun getHosts(): Map<String, LcdsHost> {
     val (_, lolPath) = getLolPaths()
-    downloadLatestSystemYaml(lolPath)
     val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
     val systemYaml = FileSystem.SYSTEM.source(systemYamlPath)
         .buffer()
@@ -165,44 +155,3 @@ private val SocketAddress.port: Int
         is InetSocketAddress -> port
         else -> throw IllegalStateException("SocketAddress is not an InetSocketAddress")
     }
-
-
-suspend fun downloadLatestSystemYaml(lolPath: String) {
-    //if it is windows we can use ManifestDownloader to get the latest system.yaml
-    if (!System.getProperty("os.name").contains("win", true)) return
-
-    val manifestDownloader = object {}::class.java.getResourceAsStream("/ManifestDownloader.exe")
-        ?: throw IllegalStateException("Cannot find ManifestDownloader.exe")
-
-    val path = "${unmaskedLeaguePath}/ManifestDownloader.exe".toPath(true)
-    val exists = FileSystem.SYSTEM.exists(path)
-    val size = if (exists) FileSystem.SYSTEM.metadata(path).size else 0L
-
-    //Check for manifest downloader
-    if (!exists || size != manifestDownloader.available().toLong()) {
-        println("Recreating ManifestDownloader.exe")
-        val file = FileSystem.SYSTEM.sink(path).buffer()
-        manifestDownloader.use { input ->
-            file.outputStream().use {
-                input.copyTo(it)
-            }
-        }
-    }
-
-    process(path.toString(), latestManifest(), "-o", lolPath, "--filter", "system.yaml", destroyForcibly = true)
-}
-
-fun latestManifest(): String {
-    val client = getUnsafeOkHttpClient()
-    val request = Request.Builder()
-        .url("https://clientconfig.rpg.riotgames.com/api/v1/config/public?namespace=keystone.products.league_of_legends.patchlines")
-        .build()
-
-    val response = client.newCall(request).execute()
-    val json = response.body?.string() ?: throw IllegalStateException("Cannot get manifest")
-    val manifest = json.deserialized()
-    val patchline =
-        manifest["keystone.products.league_of_legends.patchlines.live"]["platforms"]["win"]["configurations"][0]["patch_url"]
-
-    return patchline.asString().getOrElse { throw it }
-}

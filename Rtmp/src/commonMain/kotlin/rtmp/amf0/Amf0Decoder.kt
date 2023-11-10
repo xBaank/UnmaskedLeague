@@ -32,6 +32,7 @@ class AMF0Decoder(private val input: BufferedSource) {
             Amf0TypedObject.TYPE -> readTypedObject()
             Amf0Date.TYPE -> readAMF0Date()
             Amf0Reference.TYPE -> readAMF0Reference()
+            Amf0SwitchToAmf3.TYPE -> Amf0SwitchToAmf3
             else -> throw IOException("Unsupported AMF0 type: $type")
         }
     }
@@ -85,7 +86,7 @@ class AMF0Decoder(private val input: BufferedSource) {
     private fun readAMF0EcmaArray(): Amf0ECMAArray {
         val length = input.readInt()
         val result = mutableMapOf<String, Amf0Node>()
-        for (i in 0 until length) {
+        for (i in 0..<length) {
             val propertyName = readAMF0String()
             val value = decode()
             result[propertyName.value] = value
@@ -97,7 +98,7 @@ class AMF0Decoder(private val input: BufferedSource) {
     private fun readAMF0StrictArray(): Amf0StrictArray {
         val length = input.readInt()
         val result = mutableListOf<Amf0Node>()
-        for (i in 0 until length) {
+        for (i in 0..<length) {
             val value = decode()
             result.add(value)
         }

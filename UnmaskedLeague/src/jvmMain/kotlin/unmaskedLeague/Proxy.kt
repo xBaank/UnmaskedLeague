@@ -5,11 +5,16 @@ import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
 import io.ktor.network.tls.*
 import io.ktor.utils.io.*
-import kotlinx.coroutines.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import rtmp.Amf0MessagesHandler
 import rtmp.amf0.*
+import rtmp.packets.RawRtmpPacket
 import simpleJson.*
 
 private const val SOLOQ_ID = 420
@@ -89,29 +94,53 @@ class LeagueProxyClient internal constructor(
 
         handshake(serverReadChannel, clientWriteChannel, clientReadChannel, serverWriteChannel)
 
-        val messagesHandler = Amf0MessagesHandler(clientReadChannel, serverWriteChannel, ::unmask)
+        val incomingPartialRawMessages: MutableMap<Byte, RawRtmpPacket> = mutableMapOf()
+        val completedRawMessages: MutableSharedFlow<RawRtmpPacket> = MutableSharedFlow()
+        val outgoingPartialRawMessages: MutableSharedFlow<RawRtmpPacket> = MutableSharedFlow()
+
+        val messagesHandler = Amf0MessagesHandler(
+            input = clientReadChannel,
+            output = serverWriteChannel,
+            interceptor = ::unmask
+        )
+
+        val otherWayHandler = Amf0MessagesHandler(
+            input = serverReadChannel,
+            output = clientWriteChannel
+        ) { it }
 
         launch(Dispatchers.IO) {
+            /*          val lolClientByteArray = ByteArray(1024)
+                      while (isActive) {
+                          val bytes = clientReadChannel.readAvailable(lolClientByteArray)
+
+                          if (bytes == -1) {
+                              socket.close()
+                              clientSocket.close()
+                              cancel("Socket closed")
+                          }
+                          serverWriteChannel.writeFully(lolClientByteArray, 0, bytes)
+                      }*/
             messagesHandler.start()
         }
 
         //lolCLient -> proxy -> lolServer
         //We don't need to intercept these messages
         launch(Dispatchers.IO) {
-            val lolClientByteArray = ByteArray(1024)
-            while (isActive) {
-                val bytes = serverReadChannel.readAvailable(lolClientByteArray)
+            /*  val lolClientByteArray = ByteArray(1024)
+              while (isActive) {
+                  val bytes = serverReadChannel.readAvailable(lolClientByteArray)
 
-                if (bytes == -1) {
-                    socket.close()
-                    clientSocket.close()
-                    cancel("Socket closed")
-                }
+                  if (bytes == -1) {
+                      socket.close()
+                      clientSocket.close()
+                      cancel("Socket closed")
+                  }
 
-                clientWriteChannel.writeFully(lolClientByteArray, 0, bytes)
-            }
+                  clientWriteChannel.writeFully(lolClientByteArray, 0, bytes)
+              }*/
+            otherWayHandler.start()
         }
-
     }
 
     private fun unmask(nodes: List<Amf0Node>): List<Amf0Node> {

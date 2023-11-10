@@ -37,11 +37,11 @@ data class Amf0TypedObject(val name: String, val value: MutableMap<String, Amf0N
     }
 }
 
-object Amf0Null : Amf0Node {
+data object Amf0Null : Amf0Node {
     const val TYPE = 0x05
 }
 
-object Amf0Undefined : Amf0Node {
+data object Amf0Undefined : Amf0Node {
     const val TYPE = 0x06
 }
 
@@ -50,6 +50,10 @@ value class Amf0Reference(val value: Short) : Amf0Node {
     companion object {
         const val TYPE = 0x07
     }
+}
+
+data object Amf0SwitchToAmf3 : Amf0Node {
+    const val TYPE = 0x11
 }
 
 @JvmInline

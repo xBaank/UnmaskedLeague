@@ -19,13 +19,14 @@ internal const val LENGTH_SIZE = 3
 internal const val MESSAGE_ID_SIZE = 4
 
 class Amf0MessagesHandler(
+    private val incomingPartialRawMessages: MutableMap<Byte, RawRtmpPacket> = mutableMapOf(),
+    private val completedRawMessages: MutableSharedFlow<RawRtmpPacket> = MutableSharedFlow(),
+    private val outgoingPartialRawMessages: MutableSharedFlow<RawRtmpPacket> = MutableSharedFlow(),
     private val input: ByteReadChannel,
     private val output: ByteWriteChannel,
     private val interceptor: (List<Amf0Node>) -> List<Amf0Node>
 ) {
-    private val incomingPartialRawMessages = mutableMapOf<Byte, RawRtmpPacket>()
-    private val completedRawMessages = MutableSharedFlow<RawRtmpPacket>()
-    private val outgoingPartialRawMessages = MutableSharedFlow<RawRtmpPacket>()
+
     private val payloadBuffer = ByteArray(CHUNK_SIZE)
 
 

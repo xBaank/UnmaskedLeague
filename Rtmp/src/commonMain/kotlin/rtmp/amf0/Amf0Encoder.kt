@@ -62,6 +62,10 @@ class Amf0Encoder(private val output: BufferedSink) {
         output.writeByte(Amf0Null.TYPE)
     }
 
+    fun writeAm0SwitchToAmf3() {
+        output.writeByte(Amf0SwitchToAmf3.TYPE)
+    }
+
     fun writeUndefined() {
         output.writeByte(Amf0Undefined.TYPE)
     }
@@ -100,6 +104,7 @@ class Amf0Encoder(private val output: BufferedSink) {
             Amf0Undefined -> writeUndefined()
             is Amf0Date -> writeDate(node)
             is Amf0Reference -> writeReference(node)
+            Amf0SwitchToAmf3 -> writeAm0SwitchToAmf3()
         }
     }
 

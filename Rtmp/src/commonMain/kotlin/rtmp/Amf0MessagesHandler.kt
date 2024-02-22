@@ -9,6 +9,7 @@ import okio.Buffer
 import rtmp.amf0.AMF0Decoder
 import rtmp.amf0.Amf0Encoder
 import rtmp.amf0.Amf0Node
+import rtmp.amf3.AMF3Decoder
 import rtmp.packets.*
 
 internal const val CHUNK_SIZE = 128
@@ -89,6 +90,12 @@ class Amf0MessagesHandler(
                     streamId = packet.header.streamId
                 )
                 outgoingPartialRawMessages.emit(RawRtmpPacket(newHeader, newMessageRaw, newMessageRaw.size.toInt()))
+            } else if (packet.header is RTMPPacketHeader0 && packet.header.messageTypeId.toInt() == 0x11) {
+                val message = AMF3Decoder(packet.payload).decodeAll()
+                println(message)
+                //TODO write too
+                packet.length = packet.payload.size.toInt()
+                outgoingPartialRawMessages.emit(packet)
             } else {
                 packet.length = packet.payload.size.toInt()
                 outgoingPartialRawMessages.emit(packet)

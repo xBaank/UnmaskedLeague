@@ -5,8 +5,10 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import okio.BufferedSource
 import rtmp.readDouble
-import simpleJson.*
+import simpleJson.asObject
+import simpleJson.deserialized
 import java.io.IOException
+import kotlin.collections.set
 
 private val stringList: MutableList<String> = mutableListOf()
 private val classList: MutableList<ClassDefinition> = mutableListOf()
@@ -140,12 +142,25 @@ class AMF3Decoder(private val input: BufferedSource) {
     }
 
     private fun readAmf3Array(): Amf3Array {
-        TODO()
+        val type: Int = readAMF3Int().value
+        if ((type and 0x01) == 0) {
+            return objectList[type shr 1] as Amf3Array
+        } else {
+            val size: Int = type shr 1
+            val key: String = readAmf3String().value
+            if (key.isEmpty()) {
+                val objects = Array(size) { decode() }
+                objectList += objects
+                return Amf3Array(objects.toMutableList())
+            } else {
+                throw Error("Associative arrays are not supported")
+            }
+        }
     }
 
-    private fun readAmf3Object(): Amf3Node {
+    private fun readAmf3Object(): Amf3Object {
         val type = readAMF3Int().value
-        if ((type and 0x01) == 0) return objectList[type shr 1]
+        if ((type and 0x01) == 0) return objectList[type shr 1] as Amf3Object
 
         val defineInline = ((type shr 1) and 0x01) != 0
 
@@ -172,9 +187,7 @@ class AMF3Decoder(private val input: BufferedSource) {
             when (classDefinition.className) {
                 "DSK" -> readDSK()
                 "DSA" -> readDSA()
-                "flex.messaging.io.ArrayCollection" -> createArrayCollection(
-                    readAmf3Array()
-                )
+                "flex.messaging.io.ArrayCollection" -> createArrayCollection(readAmf3Array())
 
                 "com.riotgames.platform.systemstate.ClientSystemStatesNotification",
                 "com.riotgames.platform.broadcast.BroadcastNotification",
@@ -210,19 +223,7 @@ class AMF3Decoder(private val input: BufferedSource) {
         }
         val jsonString = input.readByteArray(size.toLong()).decodeToString()
         val jsonObj = jsonString.deserialized().asObject().getOrElse { throw it }
-        val map = jsonObj.map {
-            val node = it.value
-            val mapped = when (node) {
-                is JsonArray -> TODO()
-                is JsonBoolean -> if (node.value) Amf3True else Amf3False
-                JsonNull -> Amf3Null
-                is JsonNumber -> Amf3Integer(node.value.toInt())
-                is JsonObject -> Amf3Object(null, node.value)
-                is JsonString -> Amf3String(node.value)
-            }
-            Amf3Object(it.key, node)
-        }
-        return Amf3Object(null)
+        return jsonObj.toAm3Object() as Amf3Object
     }
 
     private fun readAmf3String(): Amf3String {

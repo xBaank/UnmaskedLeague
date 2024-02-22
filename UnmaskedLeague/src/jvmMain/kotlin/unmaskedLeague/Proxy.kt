@@ -65,9 +65,7 @@ class LeagueProxyClient internal constructor(
         while (isActive) {
             val socket = serverSocket.accept()
             println("Accepted connection from ${socket.remoteAddress} in ${socket.localAddress}")
-            launch(Dispatchers.IO) {
-                handle(socket)
-            }
+            launch(Dispatchers.IO) { handle(socket) }
         }
     }
 
@@ -92,54 +90,36 @@ class LeagueProxyClient internal constructor(
         val clientReadChannel = clientSocket.openReadChannel()
         val clientWriteChannel = clientSocket.openWriteChannel(autoFlush = true)
 
-        handshake(serverReadChannel, clientWriteChannel, clientReadChannel, serverWriteChannel)
-
         val incomingPartialRawMessages: MutableMap<Byte, RawRtmpPacket> = mutableMapOf()
         val completedRawMessages: MutableSharedFlow<RawRtmpPacket> = MutableSharedFlow()
         val outgoingPartialRawMessages: MutableSharedFlow<RawRtmpPacket> = MutableSharedFlow()
 
-        val messagesHandler = Amf0MessagesHandler(
+        handshake(serverReadChannel, clientWriteChannel, clientReadChannel, serverWriteChannel)
+
+        val inputMessagesHandler = Amf0MessagesHandler(
+            incomingPartialRawMessages = incomingPartialRawMessages,
+            completedRawMessages = completedRawMessages,
+            outgoingPartialRawMessages = outgoingPartialRawMessages,
             input = clientReadChannel,
             output = serverWriteChannel,
             interceptor = ::unmask
         )
 
-        val otherWayHandler = Amf0MessagesHandler(
+        val outputMessageHandler = Amf0MessagesHandler(
+            incomingPartialRawMessages = incomingPartialRawMessages,
+            completedRawMessages = completedRawMessages,
+            outgoingPartialRawMessages = outgoingPartialRawMessages,
             input = serverReadChannel,
-            output = clientWriteChannel
-        ) { it }
+            output = clientWriteChannel,
+            interceptor = { it }
+        )
 
         launch(Dispatchers.IO) {
-            /*          val lolClientByteArray = ByteArray(1024)
-                      while (isActive) {
-                          val bytes = clientReadChannel.readAvailable(lolClientByteArray)
-
-                          if (bytes == -1) {
-                              socket.close()
-                              clientSocket.close()
-                              cancel("Socket closed")
-                          }
-                          serverWriteChannel.writeFully(lolClientByteArray, 0, bytes)
-                      }*/
-            messagesHandler.start()
+            inputMessagesHandler.start()
         }
 
-        //lolCLient -> proxy -> lolServer
-        //We don't need to intercept these messages
         launch(Dispatchers.IO) {
-            /*  val lolClientByteArray = ByteArray(1024)
-              while (isActive) {
-                  val bytes = serverReadChannel.readAvailable(lolClientByteArray)
-
-                  if (bytes == -1) {
-                      socket.close()
-                      clientSocket.close()
-                      cancel("Socket closed")
-                  }
-
-                  clientWriteChannel.writeFully(lolClientByteArray, 0, bytes)
-              }*/
-            otherWayHandler.start()
+            outputMessageHandler.start()
         }
     }
 

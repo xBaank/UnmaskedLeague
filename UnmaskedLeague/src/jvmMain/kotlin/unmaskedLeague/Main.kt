@@ -5,6 +5,7 @@ import com.github.pgreze.process.process
 import io.ktor.network.sockets.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.*
+import okio.BufferedSource
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -69,9 +70,8 @@ private fun proxies(hosts: Map<String, LcdsHost>) = hosts.map { (region, lcds) -
 private suspend fun startClient(hosts: Map<String, LcdsHost>) = coroutineScope {
     val (riotClientPath, lolPath) = getLolPaths()
     val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
-    val systemYaml = FileSystem.SYSTEM.source(systemYamlPath)
-        .buffer()
-
+    val originalSystemYamlContent = FileSystem.SYSTEM.source(systemYamlPath).buffer().use(BufferedSource::readUtf8)
+    val systemYaml = FileSystem.SYSTEM.source(systemYamlPath).buffer()
     val systemYamlMap = systemYaml.use { yaml.load<Map<String, Any>>(systemYaml.readUtf8()) }
 
     systemYamlMap.getMap("region_data").forEach {
@@ -85,14 +85,18 @@ private suspend fun startClient(hosts: Map<String, LcdsHost>) = coroutineScope {
 
     FileSystem.SYSTEM.sink(systemYamlPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
 
-    process(
-        riotClientPath,
-        "--launch-product=league_of_legends",
-        "--launch-patchline=live",
-        "--disable-patching",
-        destroyForcibly = true
-    )
-    cancel("League closed")
+    try {
+        process(
+            riotClientPath,
+            "--launch-product=league_of_legends",
+            "--launch-patchline=live",
+            "--disable-patching",
+            destroyForcibly = true
+        )
+        cancel("League closed")
+    } finally {
+        FileSystem.SYSTEM.sink(systemYamlPath).buffer().use { it.writeUtf8(originalSystemYamlContent) }
+    }
 }
 
 private fun getLolPaths(): Pair<String, String> {

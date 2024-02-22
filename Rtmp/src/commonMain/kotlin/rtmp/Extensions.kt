@@ -2,10 +2,8 @@ package rtmp
 
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.isActive
 import okio.BufferedSink
 import okio.BufferedSource
-import kotlin.coroutines.cancellation.CancellationException
 
 fun BufferedSource.readDouble(): Double = Double.fromBits(readLong())
 fun BufferedSink.writeDouble(value: Double) = writeLong(value.toBits())
@@ -17,7 +15,7 @@ fun Int.toLengthArray(): ByteArray {
     return result
 }
 
-suspend inline fun <T> Iterable<T>.forEachAsync(crossinline action: (T) -> Unit) = coroutineScope {
+suspend inline fun <T> Iterable<T>.forEachAsync(crossinline action: suspend (T) -> Unit) = coroutineScope {
     for (element in this@forEachAsync) {
         ensureActive()
         action(element)

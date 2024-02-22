@@ -19,6 +19,8 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation("io.ktor:ktor-network:$ktor_version")
+                implementation("io.github.xbaank:simpleJson-core:3.0.0")
+                implementation("io.arrow-kt:arrow-core:1.2.1")
                 implementation("io.ktor:ktor-network-tls:$ktor_version")
                 implementation("com.squareup.okio:okio:3.3.0")
             }

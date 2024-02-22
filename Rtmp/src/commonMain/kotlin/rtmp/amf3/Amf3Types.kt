@@ -1,5 +1,12 @@
 package rtmp.amf3
 
+data class ClassDefinition(
+    val externalizable: Boolean,
+    val encoding: Int,
+    val properties: MutableList<String>,
+    val className: String
+)
+
 sealed interface Amf3Node
 
 data object Amf3Undefined : Amf3Node {
@@ -60,8 +67,7 @@ value class Amf3Array(val value: MutableList<Amf3Node>) : Amf3Node {
     }
 }
 
-@JvmInline
-value class Amf3Object(val value: MutableMap<String, Amf3Node>) : Amf3Node {
+data class Amf3Object(val name: String?, val value: MutableMap<String, Amf3Node>) : Amf3Node {
     companion object {
         const val TYPE = 0x0A
     }

@@ -2,6 +2,7 @@ package rtmp.amf0
 
 import io.ktor.utils.io.core.*
 import okio.BufferedSink
+import rtmp.amf3.Amf3Encoder
 import rtmp.forEachAsync
 import rtmp.writeDouble
 
@@ -30,7 +31,7 @@ class Amf0Encoder(private val output: BufferedSink) {
         output.write(stringArray)
     }
 
-    fun writeObject(obj: Amf0Object) {
+    suspend fun writeObject(obj: Amf0Object) {
         output.writeByte(Amf0Object.TYPE)
 
         for (entry in obj.value) {
@@ -43,7 +44,7 @@ class Amf0Encoder(private val output: BufferedSink) {
         output.writeByte(0x09)
     }
 
-    fun writeTypedObject(obj: Amf0TypedObject) {
+    suspend fun writeTypedObject(obj: Amf0TypedObject) {
         output.writeByte(Amf0TypedObject.TYPE)
 
         writeStringKey(obj.name.toAmf0String())
@@ -62,15 +63,16 @@ class Amf0Encoder(private val output: BufferedSink) {
         output.writeByte(Amf0Null.TYPE)
     }
 
-    fun writeAm0SwitchToAmf3() {
-        output.writeByte(Amf0SwitchToAmf3.TYPE)
+    suspend fun writeAm0SwitchToAmf3(node: Amf0Amf3) {
+        output.writeByte(Amf0Amf3.TYPE)
+        Amf3Encoder(output).writeAll((node.nodes))
     }
 
     fun writeUndefined() {
         output.writeByte(Amf0Undefined.TYPE)
     }
 
-    fun writeECMAArray(array: Amf0ECMAArray) {
+    suspend fun writeECMAArray(array: Amf0ECMAArray) {
         output.writeByte(Amf0ECMAArray.TYPE)
         output.writeInt(array.value.size)
         for (entry in array.value) {
@@ -82,7 +84,7 @@ class Amf0Encoder(private val output: BufferedSink) {
         output.writeByte(0x09)
     }
 
-    fun writeStrictArray(array: Amf0StrictArray) {
+    suspend fun writeStrictArray(array: Amf0StrictArray) {
         output.writeByte(Amf0StrictArray.TYPE)
         output.writeInt(array.value.size)
         for (entry in array.value) {
@@ -91,7 +93,7 @@ class Amf0Encoder(private val output: BufferedSink) {
     }
 
 
-    fun write(node: Amf0Node) {
+    suspend fun write(node: Amf0Node) {
         when (node) {
             is Amf0Boolean -> writeBoolean(node)
             is Amf0ECMAArray -> writeECMAArray(node)
@@ -104,7 +106,7 @@ class Amf0Encoder(private val output: BufferedSink) {
             Amf0Undefined -> writeUndefined()
             is Amf0Date -> writeDate(node)
             is Amf0Reference -> writeReference(node)
-            Amf0SwitchToAmf3 -> writeAm0SwitchToAmf3()
+            is Amf0Amf3 -> writeAm0SwitchToAmf3(node)
         }
     }
 

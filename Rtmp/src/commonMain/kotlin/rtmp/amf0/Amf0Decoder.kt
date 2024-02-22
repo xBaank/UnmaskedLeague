@@ -4,6 +4,7 @@ import io.ktor.utils.io.errors.*
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import okio.BufferedSource
+import rtmp.amf3.AMF3Decoder
 import rtmp.readDouble
 
 class AMF0Decoder(private val input: BufferedSource) {
@@ -19,7 +20,7 @@ class AMF0Decoder(private val input: BufferedSource) {
     }
 
 
-    fun decode(): Amf0Node {
+    suspend fun decode(): Amf0Node {
         val type = input.readByte()
         return when (type.toInt()) {
             Amf0Number.TYPE -> Amf0Number(input.readDouble())
@@ -32,9 +33,14 @@ class AMF0Decoder(private val input: BufferedSource) {
             Amf0TypedObject.TYPE -> readTypedObject()
             Amf0Date.TYPE -> readAMF0Date()
             Amf0Reference.TYPE -> readAMF0Reference()
-            Amf0SwitchToAmf3.TYPE -> Amf0SwitchToAmf3
+            Amf0Amf3.TYPE -> readAMF3()
             else -> throw IOException("Unsupported AMF0 type: $type")
         }
+    }
+
+    private suspend fun readAMF3(): Amf0Amf3 {
+        val decoded = AMF3Decoder(input).decodeAll()
+        return Amf0Amf3(decoded)
     }
 
     private fun readAMF0Reference(): Amf0Node {
@@ -48,7 +54,7 @@ class AMF0Decoder(private val input: BufferedSource) {
         return Amf0Date(date, timezone)
     }
 
-    private fun readTypedObject(): Amf0TypedObject {
+    private suspend fun readTypedObject(): Amf0TypedObject {
         val objectName = readAMF0String()
         val objectValue = readAMF0Object()
         return Amf0TypedObject(objectName.value, objectValue.value)
@@ -63,7 +69,7 @@ class AMF0Decoder(private val input: BufferedSource) {
     }
 
 
-    private fun readAMF0Object(): Amf0Object {
+    private suspend fun readAMF0Object(): Amf0Object {
         val result = mutableMapOf<String, Amf0Node>()
         while (true) {
             val propertyName = readAMF0String()
@@ -83,7 +89,7 @@ class AMF0Decoder(private val input: BufferedSource) {
     }
 
 
-    private fun readAMF0EcmaArray(): Amf0ECMAArray {
+    private suspend fun readAMF0EcmaArray(): Amf0ECMAArray {
         val length = input.readInt()
         val result = mutableMapOf<String, Amf0Node>()
         for (i in 0..<length) {
@@ -95,7 +101,7 @@ class AMF0Decoder(private val input: BufferedSource) {
     }
 
 
-    private fun readAMF0StrictArray(): Amf0StrictArray {
+    private suspend fun readAMF0StrictArray(): Amf0StrictArray {
         val length = input.readInt()
         val result = mutableListOf<Amf0Node>()
         for (i in 0..<length) {

@@ -1,5 +1,10 @@
 package rtmp.amf0
 
+import arrow.core.raise.either
+import rtmp.amf3.Amf3Node
+import simpleJson.JsonNode
+import simpleJson.asObject
+
 sealed interface Amf0Node
 
 @JvmInline
@@ -52,10 +57,6 @@ value class Amf0Reference(val value: Short) : Amf0Node {
     }
 }
 
-data object Amf0SwitchToAmf3 : Amf0Node {
-    const val TYPE = 0x11
-}
-
 @JvmInline
 value class Amf0ECMAArray(val value: MutableMap<String, Amf0Node>) : Amf0Node {
     companion object {
@@ -73,6 +74,12 @@ value class Amf0StrictArray(val value: MutableList<Amf0Node>) : Amf0Node {
 class Amf0Date(val value: Double, val timezone: Short) : Amf0Node {
     companion object {
         const val TYPE = 0x0B
+    }
+}
+
+class Amf0Amf3(val nodes: List<Amf3Node>) : Amf0Node {
+    companion object {
+        const val TYPE = 0x11
     }
 }
 
@@ -126,6 +133,13 @@ operator fun Amf0Node.set(index: Int, value: Amf0Node) {
         is Amf0StrictArray -> this.value[index] = value
         else -> {}
     }
+}
+
+fun JsonNode.toAmf0TypedObject(name: String) = either {
+    asObject().bind().map {
+
+    }
+    TODO()
 }
 
 

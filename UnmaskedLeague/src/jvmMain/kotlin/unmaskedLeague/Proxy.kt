@@ -9,7 +9,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import rtmp.Amf0MessagesHandler
@@ -91,15 +90,11 @@ class LeagueProxyClient internal constructor(
         val clientWriteChannel = clientSocket.openWriteChannel(autoFlush = true)
 
         val incomingPartialRawMessages: MutableMap<Byte, RawRtmpPacket> = mutableMapOf()
-        val completedRawMessages: MutableSharedFlow<RawRtmpPacket> = MutableSharedFlow()
-        val outgoingPartialRawMessages: MutableSharedFlow<RawRtmpPacket> = MutableSharedFlow()
 
         handshake(serverReadChannel, clientWriteChannel, clientReadChannel, serverWriteChannel)
 
         val inputMessagesHandler = Amf0MessagesHandler(
             incomingPartialRawMessages = incomingPartialRawMessages,
-            completedRawMessages = completedRawMessages,
-            outgoingPartialRawMessages = outgoingPartialRawMessages,
             input = clientReadChannel,
             output = serverWriteChannel,
             interceptor = ::unmask
@@ -107,8 +102,6 @@ class LeagueProxyClient internal constructor(
 
         val outputMessageHandler = Amf0MessagesHandler(
             incomingPartialRawMessages = incomingPartialRawMessages,
-            completedRawMessages = completedRawMessages,
-            outgoingPartialRawMessages = outgoingPartialRawMessages,
             input = serverReadChannel,
             output = clientWriteChannel,
             interceptor = { it }

@@ -4,10 +4,11 @@ import io.ktor.utils.io.errors.*
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import okio.BufferedSource
+import rtmp.AmfLists
 import rtmp.amf3.AMF3Decoder
 import rtmp.readDouble
 
-class AMF0Decoder(private val input: BufferedSource) {
+class AMF0Decoder(private val input: BufferedSource, private val amfLists: AmfLists) {
 
     suspend fun decodeAll(): List<Amf0Node> = coroutineScope {
         val result = mutableListOf<Amf0Node>()
@@ -39,13 +40,13 @@ class AMF0Decoder(private val input: BufferedSource) {
     }
 
     private suspend fun readAMF3(): Amf0Amf3 {
-        val decoded = AMF3Decoder(input).decodeAll()
+        val decoded = AMF3Decoder(input, amfLists).decodeAll()
         return Amf0Amf3(decoded)
     }
 
     private fun readAMF0Reference(): Amf0Node {
-        val reference = input.readShort()
-        return Amf0Reference(reference)
+        val reference = input.readShort().toInt()
+        return amfLists.amf0ObjectList[reference]
     }
 
     private fun readAMF0Date(): Amf0Node {
@@ -57,7 +58,9 @@ class AMF0Decoder(private val input: BufferedSource) {
     private suspend fun readTypedObject(): Amf0TypedObject {
         val objectName = readAMF0String()
         val objectValue = readAMF0Object()
-        return Amf0TypedObject(objectName.value, objectValue.value)
+        val typedObject = Amf0TypedObject(objectName.value, objectValue.value)
+        amfLists.amf0ObjectList += typedObject
+        return typedObject
     }
 
 
@@ -97,7 +100,9 @@ class AMF0Decoder(private val input: BufferedSource) {
             val value = decode()
             result[propertyName.value] = value
         }
-        return Amf0ECMAArray(result)
+        val array = Amf0ECMAArray(result)
+        amfLists.amf0ObjectList += array.value.values
+        return array
     }
 
 

@@ -4,17 +4,15 @@ import arrow.core.getOrElse
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import okio.BufferedSource
+import rtmp.AmfLists
 import rtmp.readDouble
 import simpleJson.asObject
 import simpleJson.deserialized
 import java.io.IOException
 import kotlin.collections.set
+import kotlin.experimental.and
 
-private val stringList: MutableList<String> = mutableListOf()
-private val classList: MutableList<ClassDefinition> = mutableListOf()
-private val objectList: MutableList<Amf3Node> = mutableListOf()
-
-class AMF3Decoder(private val input: BufferedSource) {
+class AMF3Decoder(private val input: BufferedSource, private val amfLists: AmfLists) {
 
     suspend fun decodeAll(): List<Amf3Node> = coroutineScope {
         val result = mutableListOf<Amf3Node>()
@@ -38,9 +36,10 @@ class AMF3Decoder(private val input: BufferedSource) {
             Amf3String.TYPE -> readAmf3String()
             Amf3XMLDocument.TYPE -> TODO()
             Amf3Date.TYPE -> TODO()
-            Amf3Array.TYPE -> TODO()
+            Amf3Array.TYPE -> readAmf3Array()
             Amf3Object.TYPE -> readAmf3Object()
             Amf3ByteArray.TYPE -> readAmf3ByteArray()
+            Amf3Dictionary.TYPE -> Amf3Dictionary
             else -> throw IOException("Unsupported AMF3 type: $type")
         }
     }
@@ -48,11 +47,11 @@ class AMF3Decoder(private val input: BufferedSource) {
     private fun readAmf3ByteArray(): Amf3ByteArray {
         val type = readAMF3Int().value
         if ((type and 0x01) == 0) {
-            return objectList[type shr 1] as Amf3ByteArray
+            return amfLists.amf3ObjectList[type shr 1] as Amf3ByteArray
         } else {
             val bytes = input.readByteArray((type shr 1).toLong())
             val uint8Array = Amf3ByteArray(bytes)
-            objectList += uint8Array
+            amfLists.amf3ObjectList += uint8Array
             return uint8Array
         }
     }
@@ -144,13 +143,13 @@ class AMF3Decoder(private val input: BufferedSource) {
     private fun readAmf3Array(): Amf3Array {
         val type: Int = readAMF3Int().value
         if ((type and 0x01) == 0) {
-            return objectList[type shr 1] as Amf3Array
+            return amfLists.amf3ObjectList[type shr 1] as Amf3Array
         } else {
             val size: Int = type shr 1
             val key: String = readAmf3String().value
             if (key.isEmpty()) {
                 val objects = Array(size) { decode() }
-                objectList += objects
+                amfLists.amf3ObjectList += objects
                 return Amf3Array(objects.toMutableList())
             } else {
                 throw Error("Associative arrays are not supported")
@@ -160,7 +159,7 @@ class AMF3Decoder(private val input: BufferedSource) {
 
     private fun readAmf3Object(): Amf3Object {
         val type = readAMF3Int().value
-        if ((type and 0x01) == 0) return objectList[type shr 1] as Amf3Object
+        if ((type and 0x01) == 0) return amfLists.amf3ObjectList[type shr 1] as Amf3Object
 
         val defineInline = ((type shr 1) and 0x01) != 0
 
@@ -172,14 +171,14 @@ class AMF3Decoder(private val input: BufferedSource) {
                 className = readAmf3String().value
             )
 
-            for (i in 0..<classDefinition.properties.size) {
-                classDefinition.properties[i] = readAmf3String().value
+            for (i in 0..<(type shr 4)) {
+                classDefinition.properties.add(i, readAmf3String().value)
             }
 
-            classList += classDefinition
+            amfLists.classList += classDefinition
             classDefinition
         } else {
-            classList[type]
+            amfLists.classList[type]
         }
 
 
@@ -212,14 +211,14 @@ class AMF3Decoder(private val input: BufferedSource) {
             typedObject
         }
 
-        objectList += typedObject
+        amfLists.amf3ObjectList += typedObject
         return typedObject
     }
 
     private fun readJson(): Amf3Object {
         var size = 0
         repeat(4) {
-            size = size * 256 + input.readByte().toInt()
+            size = size * 256 + (input.readByte() and 0xFF.toByte()).toUInt().toInt()
         }
         val jsonString = input.readByteArray(size.toLong()).decodeToString()
         val jsonObj = jsonString.deserialized().asObject().getOrElse { throw it }
@@ -235,19 +234,19 @@ class AMF3Decoder(private val input: BufferedSource) {
                 val bytes = input.readByteArray(length.toLong())
                 String(bytes, charset("UTF-8"))
             } else ""
-            stringList += result
-        } else result = stringList[type shr 1]
+            amfLists.stringList += result
+        } else result = amfLists.stringList[type shr 1]
         return Amf3String(result)
     }
 
     private fun readAMF3Int(): Amf3Integer {
         var result = 0
         var n = 0
-        var b = input.readByte().toInt()
+        var b = (input.readByte() and 0xFF.toByte()).toUInt().toInt()
         while ((b and 0x80) != 0 && n < 3) {
             result = result shl 7
             result = result or (b and 0x7f)
-            b = input.readByte().toInt()
+            b = (input.readByte() and 0xFF.toByte()).toUInt().toInt()
             n++
         }
         if (n < 3) {

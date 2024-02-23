@@ -21,7 +21,7 @@ class AMF0Decoder(private val input: BufferedSource, private val amfLists: AmfLi
     }
 
 
-    private suspend fun decode(): Amf0Node {
+    suspend fun decode(): Amf0Node {
         val type = input.readByte()
         return when (type.toInt()) {
             Amf0Number.TYPE -> Amf0Number(input.readDouble())

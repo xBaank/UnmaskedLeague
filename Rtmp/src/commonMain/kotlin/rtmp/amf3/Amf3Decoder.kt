@@ -30,19 +30,25 @@ class AMF3Decoder(private val input: BufferedSource, private val amfLists: AmfLi
             Amf3Null.TYPE -> Amf3Null
             Amf3False.TYPE -> Amf3False
             Amf3True.TYPE -> Amf3True
-            Amf3Integer.TYPE -> readAMF3Int()
+            Amf3Integer.TYPE -> readAmf3Int()
             Amf3Double.TYPE -> Amf3Double(input.readDouble())
             Amf3String.TYPE -> readAmf3String()
             Amf3Array.TYPE -> readAmf3Array()
             Amf3Object.TYPE -> readAmf3Object()
             Amf3ByteArray.TYPE -> readAmf3ByteArray()
             Amf3Dictionary.TYPE -> Amf3Dictionary
+            Amf3Date.TYPE -> readAmf3Date()
             else -> throw NotImplementedError("Unsupported AMF3 type: $type")
         }
     }
 
+    private fun readAmf3Date(): Amf3Node {
+        val date = input.readDouble()
+        return Amf3Date(date)
+    }
+
     private fun readAmf3ByteArray(): Amf3ByteArray {
-        val type = readAMF3Int().value
+        val type = readAmf3Int().value
         if ((type and 0x01) == 0) {
             return amfLists.amf3ObjectList[type shr 1] as Amf3ByteArray
         } else {
@@ -93,7 +99,7 @@ class AMF3Decoder(private val input: BufferedSource, private val amfLists: AmfLi
             if (index == 0) {
                 if ((flag and 0x01) != 0) typedObject.value["correlationId"] = decode()
                 if ((flag and 0x02) != 0) {
-                    val ignored = readAMF3Int()
+                    val ignored = readAmf3Int()
                     typedObject.value["correlationId"] = Amf3String(convertByteArrayToId(readAmf3ByteArray().value))
                 }
                 bits = 2
@@ -138,7 +144,7 @@ class AMF3Decoder(private val input: BufferedSource, private val amfLists: AmfLi
     }
 
     private fun readAmf3Array(): Amf3Array {
-        val type: Int = readAMF3Int().value
+        val type: Int = readAmf3Int().value
         if ((type and 0x01) == 0) {
             return amfLists.amf3ObjectList[type shr 1] as Amf3Array
         } else {
@@ -155,7 +161,7 @@ class AMF3Decoder(private val input: BufferedSource, private val amfLists: AmfLi
     }
 
     private fun readAmf3Object(): Amf3Object {
-        val type = readAMF3Int().value
+        val type = readAmf3Int().value
         if ((type and 0x01) == 0) return amfLists.amf3ObjectList[type shr 1] as Amf3Object
 
         val defineInline = ((type shr 1) and 0x01) != 0
@@ -224,7 +230,7 @@ class AMF3Decoder(private val input: BufferedSource, private val amfLists: AmfLi
 
     private fun readAmf3String(): Amf3String {
         val result: String
-        val type = readAMF3Int().value
+        val type = readAmf3Int().value
         if ((type and 0x01) != 0) {
             val length = type shr 1
             result = if (length > 0) {
@@ -236,7 +242,7 @@ class AMF3Decoder(private val input: BufferedSource, private val amfLists: AmfLi
         return Amf3String(result)
     }
 
-    private fun readAMF3Int(): Amf3Integer {
+    private fun readAmf3Int(): Amf3Integer {
         var result = 0
         var n = 0
         var b = (input.readByte() and 0xFF.toByte()).toUInt().toInt()

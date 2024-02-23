@@ -19,7 +19,13 @@ class Amf3Encoder(private val output: BufferedSink) {
         is Amf3Object -> writeAmf3Object(node)
         is Amf3String -> writeAmf3String(node)
         Amf3Undefined -> writeAmf3Undefined()
+        is Amf3Date -> writeAmf3Date(node)
         else -> throw NotImplementedError("node $node has not encode implemented")
+    }
+
+    private fun writeAmf3Date(node: Amf3Date) {
+        output.writeByte(Amf3Date.TYPE)
+        output.writeDouble(node.value)
     }
 
     private fun writeAmf3Object(node: Amf3Object) {

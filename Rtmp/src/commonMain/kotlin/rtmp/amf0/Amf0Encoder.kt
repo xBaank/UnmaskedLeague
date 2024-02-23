@@ -12,7 +12,7 @@ class Amf0Encoder(private val output: BufferedSink) {
         encode(it)
     }
 
-    private suspend fun encode(node: Amf0Node) {
+    suspend fun encode(node: Amf0Node) {
         when (node) {
             is Amf0Boolean -> writeBoolean(node)
             is Amf0ECMAArray -> writeECMAArray(node)

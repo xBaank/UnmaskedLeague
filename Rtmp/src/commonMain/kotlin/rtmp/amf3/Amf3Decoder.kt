@@ -8,7 +8,6 @@ import rtmp.AmfLists
 import rtmp.readDouble
 import simpleJson.asObject
 import simpleJson.deserialized
-import java.io.IOException
 import kotlin.collections.set
 import kotlin.experimental.and
 
@@ -24,7 +23,7 @@ class AMF3Decoder(private val input: BufferedSource, private val amfLists: AmfLi
         result
     }
 
-    fun decode(): Amf3Node {
+    private fun decode(): Amf3Node {
         val type = input.readByte()
         return when (type.toInt()) {
             Amf3Undefined.TYPE -> Amf3Undefined
@@ -34,13 +33,11 @@ class AMF3Decoder(private val input: BufferedSource, private val amfLists: AmfLi
             Amf3Integer.TYPE -> readAMF3Int()
             Amf3Double.TYPE -> Amf3Double(input.readDouble())
             Amf3String.TYPE -> readAmf3String()
-            Amf3XMLDocument.TYPE -> TODO()
-            Amf3Date.TYPE -> TODO()
             Amf3Array.TYPE -> readAmf3Array()
             Amf3Object.TYPE -> readAmf3Object()
             Amf3ByteArray.TYPE -> readAmf3ByteArray()
             Amf3Dictionary.TYPE -> Amf3Dictionary
-            else -> throw IOException("Unsupported AMF3 type: $type")
+            else -> throw NotImplementedError("Unsupported AMF3 type: $type")
         }
     }
 

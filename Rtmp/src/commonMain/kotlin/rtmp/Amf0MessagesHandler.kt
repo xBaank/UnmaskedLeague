@@ -65,10 +65,22 @@ class Amf0MessagesHandler(
     private suspend fun handle(packet: RawRtmpPacket): Unit = coroutineScope {
         //Only intercepting AMF0 messages
         if (packet.header is RTMPPacketHeader0 && packet.header.messageTypeId.toInt() == 0x14) {
-            val message = AMF0Decoder(packet.payload, amfLists).decodeAll().let(interceptor)
-            println(message)
-            val newMessageRaw = Buffer()
-            Amf0Encoder(newMessageRaw).writeAll(message)
+            val payload1 = packet.payload.readByteArray()
+            val message = AMF0Decoder(Buffer().write(payload1), amfLists).decodeAll().let(interceptor)
+            //println(message)
+            var newMessageRaw = Buffer()
+            Amf0Encoder(newMessageRaw).encodeAll(message)
+            val payload2 = newMessageRaw.readByteArray()
+            newMessageRaw = Buffer().write(payload2)
+
+            println()
+            println()
+            println(payload1.decodeToString())
+            println()
+            println(payload2.decodeToString())
+            println()
+            println()
+
             val newHeader = RTMPPacketHeader0(
                 chunkBasicHeader = packet.header.chunkBasicHeader,
                 timeStamp = packet.header.timeStamp,

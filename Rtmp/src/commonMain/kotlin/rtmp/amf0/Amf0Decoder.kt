@@ -21,7 +21,7 @@ class AMF0Decoder(private val input: BufferedSource, private val amfLists: AmfLi
     }
 
 
-    suspend fun decode(): Amf0Node {
+    private suspend fun decode(): Amf0Node {
         val type = input.readByte()
         return when (type.toInt()) {
             Amf0Number.TYPE -> Amf0Number(input.readDouble())
@@ -35,7 +35,7 @@ class AMF0Decoder(private val input: BufferedSource, private val amfLists: AmfLi
             Amf0Date.TYPE -> readAMF0Date()
             Amf0Reference.TYPE -> readAMF0Reference()
             Amf0Amf3.TYPE -> readAMF3()
-            else -> throw IOException("Unsupported AMF0 type: $type")
+            else -> throw NotImplementedError("Unsupported AMF0 type: $type")
         }
     }
 

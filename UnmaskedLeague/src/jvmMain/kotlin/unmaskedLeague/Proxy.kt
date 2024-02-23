@@ -1,6 +1,5 @@
 package unmaskedLeague
 
-import arrow.core.getOrElse
 import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
 import io.ktor.network.tls.*
@@ -12,9 +11,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import rtmp.Amf0MessagesHandler
-import rtmp.amf0.*
 import rtmp.packets.RawRtmpPacket
-import simpleJson.*
 
 private const val SOLOQ_ID = 420
 
@@ -97,14 +94,20 @@ class LeagueProxyClient internal constructor(
             incomingPartialRawMessages = incomingPartialRawMessages,
             input = clientReadChannel,
             output = serverWriteChannel,
-            interceptor = ::unmask
+            interceptor = {
+                println("REQUEST")
+                it.apply(::println)
+            }
         )
 
         val outputMessageHandler = Amf0MessagesHandler(
             incomingPartialRawMessages = incomingPartialRawMessages,
             input = serverReadChannel,
             output = clientWriteChannel,
-            interceptor = { it }
+            interceptor = {
+                println("RESPONSE")
+                it.apply(::println)
+            }
         )
 
         launch(Dispatchers.IO) {
@@ -114,29 +117,5 @@ class LeagueProxyClient internal constructor(
         launch(Dispatchers.IO) {
             outputMessageHandler.start()
         }
-    }
-
-    private fun unmask(nodes: List<Amf0Node>): List<Amf0Node> {
-        val body = nodes.firstOrNull { it["body"] != null }?.get("body")
-
-        val isCompressed = body?.get("compressedPayload")?.toAmf0Boolean()?.value ?: return nodes
-        val payloadGzip = body["payload"].toAmf0String()?.value ?: return nodes
-
-        val json = if (isCompressed) payloadGzip.base64Ungzip() else payloadGzip
-        val payload = json.deserialized().getOrElse { throw it } // Can this come in other formats?
-
-        if (payload["queueId"].asInt().getOrNull() != SOLOQ_ID) return nodes
-
-        val localCellID = payload["championSelectState"]["localPlayerCellId"].asInt().getOrNull()
-
-        payload["championSelectState"]["cells"]["alliedTeam"].asArray().getOrNull()?.forEach {
-            if (it["cellId"].asInt().getOrNull() == localCellID) return@forEach
-            if (it["nameVisibilityType"].isRight()) it["nameVisibilityType"] = "VISIBLE"
-        }
-
-        val serialized = payload.serialized()
-        body["payload"] = if (isCompressed) serialized.gzipBase64().toAmf0String() else serialized.toAmf0String()
-
-        return nodes
     }
 }

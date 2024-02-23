@@ -4,10 +4,7 @@ import io.ktor.utils.io.*
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import okio.Buffer
-import rtmp.amf0.AMF0Decoder
-import rtmp.amf0.Amf0Encoder
-import rtmp.amf0.Amf0Node
-import rtmp.amf0.Amf0Number
+import rtmp.amf0.*
 import rtmp.packets.*
 import kotlin.collections.set
 
@@ -65,10 +62,8 @@ class Amf0MessagesHandler(
     }
 
     private suspend fun handle(packet: RawRtmpPacket): Unit = coroutineScope {
-        //Only intercepting AMF0 messages
         if (packet.header is RTMPPacketHeader0 && packet.header.messageTypeId.toInt() == 0x14) {
             val message = AMF0Decoder(packet.payload, amfLists).decodeAll().let(interceptor)
-            //println(message)
             val newMessageRaw = Buffer()
             Amf0Encoder(newMessageRaw).encodeAll(message)
             val newHeader = RTMPPacketHeader0(
@@ -80,49 +75,34 @@ class Amf0MessagesHandler(
             )
             write(RawRtmpPacket(newHeader, newMessageRaw, newMessageRaw.size.toInt()))
         } else if (packet.header is RTMPPacketHeader0 && packet.header.messageTypeId.toInt() == 0x11) {
-            val copied = packet.payload.use(Buffer::readByteArray)
-            val buffer = Buffer().write(copied)
-            runCatching {
-                val obj = mutableMapOf<String, Amf0Node>()
-                if (buffer[0].toInt() == 0x00) {
-                    obj["version"] = Amf0Number(0.0)
-                    buffer.readByte()
-                }
-                obj["result"] = AMF0Decoder(buffer, amfLists).decode()
-                obj["invokeId"] = AMF0Decoder(buffer, amfLists).decode()
-                obj["serviceCall"] = AMF0Decoder(buffer, amfLists).decode()
-                obj["data"] = AMF0Decoder(buffer, amfLists).decode()
-
-                val newMessageRaw = Buffer()
-                obj["version"]?.let { newMessageRaw.writeByte(0x00) }
-                obj["result"]?.let { Amf0Encoder(newMessageRaw).encode(it) }
-                obj["invokeId"]?.let { Amf0Encoder(newMessageRaw).encode(it) }
-                obj["serviceCall"]?.let { Amf0Encoder(newMessageRaw).encode(it) }
-                obj["data"]?.let { Amf0Encoder(newMessageRaw).encode(it) }
-
-                val result = newMessageRaw.use(Buffer::readByteArray)
-
-                println()
-                println(copied.decodeToString())
-                println()
-                println(result.decodeToString())
-                println()
-
-
-                val newHeader = RTMPPacketHeader0(
-                    chunkBasicHeader = packet.header.chunkBasicHeader,
-                    timeStamp = packet.header.timeStamp,
-                    length = result.size.toInt().toLengthArray(),
-                    messageTypeId = packet.header.messageTypeId,
-                    streamId = packet.header.streamId
-                )
-                write(RawRtmpPacket(newHeader, Buffer().write(result), result.size.toInt()))
-            }.onFailure {
-                println(it)
-                packet.payload = Buffer().write(copied)
-                packet.length = packet.payload.size.toInt()
-                write(packet)
+            val obj = mutableMapOf<String, Amf0Node>()
+            if (packet.payload[0].toInt() == 0x00) {
+                obj["version"] = Amf0Number(0.0)
+                packet.payload.readByte()
             }
+            obj["result"] = AMF0Decoder(packet.payload, amfLists).decode()
+            obj["invokeId"] = AMF0Decoder(packet.payload, amfLists).decode()
+            obj["serviceCall"] = AMF0Decoder(packet.payload, amfLists).decode()
+            obj["data"] = AMF0Decoder(packet.payload, amfLists).decode()
+
+            interceptor(listOf(Amf0Object(obj)))
+
+            val newMessageRaw = Buffer()
+            obj["version"]?.let { newMessageRaw.writeByte(0x00) }
+            obj["result"]?.let { Amf0Encoder(newMessageRaw).encode(it) }
+            obj["invokeId"]?.let { Amf0Encoder(newMessageRaw).encode(it) }
+            obj["serviceCall"]?.let { Amf0Encoder(newMessageRaw).encode(it) }
+            obj["data"]?.let { Amf0Encoder(newMessageRaw).encode(it) }
+
+
+            val newHeader = RTMPPacketHeader0(
+                chunkBasicHeader = packet.header.chunkBasicHeader,
+                timeStamp = packet.header.timeStamp,
+                length = newMessageRaw.size.toInt().toLengthArray(),
+                messageTypeId = packet.header.messageTypeId,
+                streamId = packet.header.streamId
+            )
+            write(RawRtmpPacket(newHeader, newMessageRaw, newMessageRaw.size.toInt()))
         } else {
             if (packet.header is RTMPPacketHeader1) println("asd")
             packet.length = packet.payload.size.toInt()

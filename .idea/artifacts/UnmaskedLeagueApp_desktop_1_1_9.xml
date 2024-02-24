@@ -1,0 +1,6 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="UnmaskedLeagueApp-desktop-1.1.9">
+    <output-path>$PROJECT_DIR$/UnmaskedLeagueApp/build/libs</output-path>
+    <root id="archive" name="UnmaskedLeagueApp-desktop-1.1.9.jar" />
+  </artifact>
+</component>

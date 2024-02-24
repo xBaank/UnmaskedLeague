@@ -9,7 +9,7 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/Rtmp" />
-            <option value="$PROJECT_DIR$/UnmaskedLeague" />
+            <option value="$PROJECT_DIR$/UnmaskedLeagueApp" />
           </set>
         </option>
       </GradleProjectSettings>

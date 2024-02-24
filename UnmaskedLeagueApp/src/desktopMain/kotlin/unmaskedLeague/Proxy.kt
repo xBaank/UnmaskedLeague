@@ -1,5 +1,6 @@
 package unmaskedLeague
 
+import arrow.core.getOrElse
 import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
 import io.ktor.network.tls.*
@@ -11,7 +12,13 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import rtmp.Amf0MessagesHandler
+import rtmp.amf0.*
+import rtmp.amf3.Amf3Array
+import rtmp.amf3.Amf3Integer
+import rtmp.amf3.Amf3Object
 import rtmp.packets.RawRtmpPacket
+import simpleJson.deserialized
+import simpleJson.serializedPretty
 
 private const val SOLOQ_ID = 420
 
@@ -95,8 +102,8 @@ class LeagueProxyClient internal constructor(
             input = clientReadChannel,
             output = serverWriteChannel,
             interceptor = {
-                println("REQUEST")
-                it.apply(::println)
+                println("RESPONSE")
+                log(it)
             }
         )
 
@@ -105,8 +112,8 @@ class LeagueProxyClient internal constructor(
             input = serverReadChannel,
             output = clientWriteChannel,
             interceptor = {
-                println("RESPONSE")
-                it.apply(::println)
+                println("REQUEST")
+                log(it)
             }
         )
 
@@ -117,5 +124,33 @@ class LeagueProxyClient internal constructor(
         launch(Dispatchers.IO) {
             outputMessageHandler.start()
         }
+    }
+
+    private fun log(nodes: List<Amf0Node>): List<Amf0Node> {
+        println(nodes)
+
+        runCatching {
+            val data = nodes[0]["data"] as? Amf0Amf3
+            val nodesa = data?.nodes?.get(0) as? Amf3Object
+            val bodyA = nodesa?.value?.get("body") as? Amf3Array
+            if (bodyA != null && bodyA.value.getOrNull(0) == Amf3Integer(14)) {
+                bodyA.value[0] = Amf3Integer(32)
+            }
+        }.onFailure {
+            println(it)
+        }
+
+        val body = nodes.firstOrNull { it["body"] != null }?.get("body")
+
+        val isCompressed = body?.get("compressedPayload")?.toAmf0Boolean()?.value ?: return nodes
+        val payloadGzip = body["payload"].toAmf0String()?.value ?: return nodes
+
+        val json = if (isCompressed) payloadGzip.base64Ungzip() else payloadGzip
+        val payload = json.deserialized().getOrElse { throw it } // Can this come in other formats?
+
+
+        println(payload.serializedPretty())
+
+        return nodes
     }
 }

@@ -2,7 +2,7 @@
   <artifact type="jar" name="UnmaskedLeague-jvm-1.0.1">
     <output-path>$PROJECT_DIR$/UnmaskedLeague/build/libs</output-path>
     <root id="archive" name="UnmaskedLeague-jvm-1.0.1.jar">
-      <element id="module-output" name="UnmaskedLeague.UnmaskedLeague.jvmMain" />
+      <element id="module-output" name="UnmaskedLeague.UnmaskedLeague.desktopMain" />
     </root>
   </artifact>
 </component>

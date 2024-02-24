@@ -1,0 +1,6 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="UnmaskedLeague-jvm-1.1.10">
+    <output-path>$PROJECT_DIR$/UnmaskedLeague/build/libs</output-path>
+    <root id="archive" name="UnmaskedLeague-jvm-1.1.10.jar" />
+  </artifact>
+</component>

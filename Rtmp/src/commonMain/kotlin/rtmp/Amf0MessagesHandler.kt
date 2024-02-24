@@ -2,9 +2,7 @@ package rtmp
 
 import io.ktor.utils.io.*
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import okio.Buffer
 import rtmp.amf0.AMF0Decoder
 import rtmp.amf0.Amf0Encoder
@@ -24,36 +22,25 @@ class Amf0MessagesHandler(
     private val interceptor: (List<Amf0Node>) -> List<Amf0Node>
 ) {
     private val incomingPartialRawMessages = mutableMapOf<Byte, RawRtmpPacket>()
-    private val completedRawMessages = MutableSharedFlow<RawRtmpPacket>()
-    private val outgoingPartialRawMessages = MutableSharedFlow<RawRtmpPacket>()
     private val payloadBuffer = ByteArray(CHUNK_SIZE)
 
+    private suspend fun write(packet: RawRtmpPacket): Unit = coroutineScope {
+        writeHeader(packet.header)
+        while (packet.length > 0 && isActive) {
+            val toWrite = minOf(CHUNK_SIZE, packet.length).toLong()
+            val asByteArray = packet.payload.readByteArray(toWrite)
+            output.writeFully(asByteArray, 0, toWrite.toInt())
 
-    suspend fun start() = coroutineScope {
-        launch { readingLoop() }
-        launch { interceptingLoop() }
-        launch { writingLoop() }
-    }
-
-    private suspend fun writingLoop(): Unit = coroutineScope {
-        outgoingPartialRawMessages.collect {
-            writeHeader(it.header)
-            while (it.length > 0 && isActive) {
-                val toWrite = minOf(CHUNK_SIZE, it.length).toLong()
-                val asByteArray = it.payload.readByteArray(toWrite)
-                output.writeFully(asByteArray, 0, toWrite.toInt())
-
-                it.length -= toWrite.toInt()
-                if (it.length != 0) {
-                    val firstByte =
-                        ((CHUNCK_HEADER_TYPE_3.toInt() shl 6) and 0b11000000) or (it.header.channelId.toInt() and 0b00111111)
-                    output.writeByte(firstByte)
-                }
+            packet.length -= toWrite.toInt()
+            if (packet.length != 0) {
+                val firstByte =
+                    ((CHUNCK_HEADER_TYPE_3.toInt() shl 6) and 0b11000000) or (packet.header.channelId.toInt() and 0b00111111)
+                output.writeByte(firstByte)
             }
         }
     }
 
-    private suspend fun readingLoop(): Unit = coroutineScope {
+    suspend fun start(): Unit = coroutineScope {
         while (isActive) {
             val header = readHeader()
             val packet = incomingPartialRawMessages.getOrPut(header.channelId) {
@@ -68,30 +55,28 @@ class Amf0MessagesHandler(
 
             if (packet.length == 0) {
                 incomingPartialRawMessages.remove(header.channelId)
-                completedRawMessages.emit(packet)
+                intercept(packet)
             }
         }
     }
 
-    private suspend fun interceptingLoop(): Unit = coroutineScope {
-        completedRawMessages.collect { packet ->
-            //Only intercepting AMF0 messages
-            if (packet.header is RTMPPacketHeader0 && packet.header.messageTypeId.toInt() == 0x14) {
-                val message = AMF0Decoder(packet.payload).decodeAll().let(interceptor)
-                val newMessageRaw = Buffer()
-                Amf0Encoder(newMessageRaw).writeAll(message)
-                val newHeader = RTMPPacketHeader0(
-                    chunkBasicHeader = packet.header.chunkBasicHeader,
-                    timeStamp = packet.header.timeStamp,
-                    length = newMessageRaw.size.toInt().toLengthArray(),
-                    messageTypeId = packet.header.messageTypeId,
-                    streamId = packet.header.streamId
-                )
-                outgoingPartialRawMessages.emit(RawRtmpPacket(newHeader, newMessageRaw, newMessageRaw.size.toInt()))
-            } else {
-                packet.length = packet.payload.size.toInt()
-                outgoingPartialRawMessages.emit(packet)
-            }
+    private suspend fun intercept(packet: RawRtmpPacket): Unit = coroutineScope {
+        //Only intercepting AMF0 messages
+        if (packet.header is RTMPPacketHeader0 && packet.header.messageTypeId.toInt() == 0x14) {
+            val message = AMF0Decoder(packet.payload).decodeAll().let(interceptor)
+            val newMessageRaw = Buffer()
+            Amf0Encoder(newMessageRaw).writeAll(message)
+            val newHeader = RTMPPacketHeader0(
+                chunkBasicHeader = packet.header.chunkBasicHeader,
+                timeStamp = packet.header.timeStamp,
+                length = newMessageRaw.size.toInt().toLengthArray(),
+                messageTypeId = packet.header.messageTypeId,
+                streamId = packet.header.streamId
+            )
+            write(RawRtmpPacket(newHeader, newMessageRaw, newMessageRaw.size.toInt()))
+        } else {
+            packet.length = packet.payload.size.toInt()
+            write(packet)
         }
     }
 

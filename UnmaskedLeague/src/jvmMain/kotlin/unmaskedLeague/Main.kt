@@ -5,7 +5,6 @@ import com.github.pgreze.process.process
 import io.ktor.network.sockets.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.*
-import okio.BufferedSource
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -70,9 +69,9 @@ private fun proxies(hosts: Map<String, LcdsHost>) = hosts.map { (region, lcds) -
 private suspend fun startClient(hosts: Map<String, LcdsHost>) = coroutineScope {
     val (riotClientPath, lolPath) = getLolPaths()
     val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
-    val originalSystemYamlContent = FileSystem.SYSTEM.source(systemYamlPath).buffer().use(BufferedSource::readUtf8)
-    val systemYaml = FileSystem.SYSTEM.source(systemYamlPath).buffer()
-    val systemYamlMap = systemYaml.use { yaml.load<Map<String, Any>>(systemYaml.readUtf8()) }
+    val systemYaml = FileSystem.SYSTEM.source(systemYamlPath).buffer().use { it.readUtf8() }
+    val systemYamlMap = yaml.load<Map<String, Any>>(systemYaml)
+    val systemYamlMapOriginal = yaml.load<Map<String, Any>>(systemYaml)
 
     systemYamlMap.getMap("region_data").forEach {
         val region = it.key
@@ -95,7 +94,8 @@ private suspend fun startClient(hosts: Map<String, LcdsHost>) = coroutineScope {
         )
         cancel("League closed")
     } finally {
-        FileSystem.SYSTEM.sink(systemYamlPath).buffer().use { it.writeUtf8(originalSystemYamlContent) }
+        //Leave as it was originally
+        FileSystem.SYSTEM.sink(systemYamlPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMapOriginal)) }
     }
 }
 

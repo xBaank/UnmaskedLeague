@@ -1,4 +1,4 @@
-# UnmaskedLeague [![Java CI with Gradle](https://github.com/xBaank/UnmaskedLeague/actions/workflows/gradle.yml/badge.svg)](https://github.com/xBaank/UnmaskedLeague/actions/workflows/gradle.yml)
+# 🎭 UnmaskedLeague [![Java CI with Gradle](https://github.com/xBaank/UnmaskedLeague/actions/workflows/gradle.yml/badge.svg)](https://github.com/xBaank/UnmaskedLeague/actions/workflows/gradle.yml)
 
 > [!NOTE]\
 > You can read here how it works: [Showing names in SOLOQ champ select](https://web-xbaank.vercel.app/blog/Reversing-engineering-lol)

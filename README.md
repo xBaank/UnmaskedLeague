@@ -1,7 +1,7 @@
 # 🎭 UnmaskedLeague [![Java CI with Gradle](https://github.com/xBaank/UnmaskedLeague/actions/workflows/gradle.yml/badge.svg)](https://github.com/xBaank/UnmaskedLeague/actions/workflows/gradle.yml)
 
 > [!NOTE]\
-> You can read here how it works: [Showing names in SOLOQ champ select](https://web-xbaank.vercel.app/blog/Reversing-engineering-lol)
+> You can read here how it works: [Showing names in SOLOQ champ select](https://xbaank.github.io/blog/showing-names-in-soloq.html)
 
 > [!IMPORTANT]\
 > This exploit was discovered by [Hawolt](https://github.com/hawolt), You can check his version

@@ -3,7 +3,6 @@ package unmaskedLeague
 import arrow.core.getOrElse
 import com.github.pgreze.process.process
 import io.ktor.network.sockets.*
-import io.ktor.utils.io.*
 import kotlinx.coroutines.*
 import okio.FileSystem
 import okio.Path
@@ -54,7 +53,7 @@ fun main(): Unit = runBlocking {
 
             else -> {
                 showError(it.stackTraceToString(), it.message ?: "An error happened")
-                it.printStack()
+                it.printStackTrace()
             }
         }
     }
@@ -101,7 +100,7 @@ suspend fun showTray(clientJob: Job) = coroutineScope {
     trayIcon.displayMessage("UnmaskedLeague", "UnmaskedLeague is running!", TrayIcon.MessageType.INFO)
 }
 
-private fun proxies(hosts: Map<String, LcdsHost>) = hosts.map { (region, lcds) ->
+private suspend fun proxies(hosts: Map<String, LcdsHost>) = hosts.map { (region, lcds) ->
     val proxyClient = LeagueProxyClient(lcds.host, lcds.port)
     val port = proxyClient.serverSocket.localAddress.port
     proxyHosts[region] = LcdsHost("127.0.0.1", port)

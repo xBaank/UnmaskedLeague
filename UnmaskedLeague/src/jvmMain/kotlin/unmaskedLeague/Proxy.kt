@@ -18,7 +18,7 @@ private suspend fun handshake(
     serverReadChannel: ByteReadChannel,
     clientWriteChannel: ByteWriteChannel,
     clientReadChannel: ByteReadChannel,
-    serverWriteChannel: ByteWriteChannel
+    serverWriteChannel: ByteWriteChannel,
 ) {
     //TODO Could we use the same handshake for all connections so we don't alloocate 1536 bytes for each connection?
     val c0 = serverReadChannel.readByte()
@@ -44,7 +44,7 @@ private suspend fun handshake(
     clientWriteChannel.writeFully(c1Echo, 0, c1Echo.size)
 }
 
-fun LeagueProxyClient(host: String, port: Int): LeagueProxyClient {
+suspend fun LeagueProxyClient(host: String, port: Int): LeagueProxyClient {
     val selectorManager = SelectorManager(Dispatchers.IO)
     val socketServer = aSocket(selectorManager).tcp().bind()
 

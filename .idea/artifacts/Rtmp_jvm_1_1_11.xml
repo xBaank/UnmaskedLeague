@@ -1,0 +1,6 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Rtmp-jvm-1.1.11">
+    <output-path>$PROJECT_DIR$/Rtmp/build/libs</output-path>
+    <root id="archive" name="Rtmp-jvm-1.1.11.jar" />
+  </artifact>
+</component>

@@ -14,6 +14,7 @@ import org.yaml.snakeyaml.Yaml
 import simpleJson.asString
 import simpleJson.deserialized
 import simpleJson.get
+import java.awt.*
 import javax.swing.JOptionPane
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.system.exitProcess
@@ -37,7 +38,9 @@ fun main(): Unit = runBlocking {
         }
         val hosts = getHosts()
         proxies(hosts).forEach { launch(Dispatchers.IO) { it.start() } }
-        startClient(hosts)
+        val clientJob = launch { startClient(hosts) }
+        showTray(clientJob)
+        clientJob.join()
     }.onFailure {
         when (it) {
             is LeagueNotFoundException -> {
@@ -56,6 +59,46 @@ fun main(): Unit = runBlocking {
         }
     }
     exitProcess(0)
+}
+
+suspend fun showTray(clientJob: Job) = coroutineScope {
+    if (!SystemTray.isSupported()) {
+        println("System tray is not supported on this system.")
+        return@coroutineScope
+    }
+
+    // Create a SystemTray instance
+    val systemTray = SystemTray.getSystemTray()
+
+    // Load an icon image for the tray (replace with your icon path)
+    val iconImage = Toolkit.getDefaultToolkit().createImage(
+        Thread.currentThread().contextClassLoader.getResource("icon.png")
+    )
+
+    // Create a tray icon
+    val trayIcon = TrayIcon(iconImage, "UnmaskedLeague")
+    trayIcon.isImageAutoSize = true
+
+    // Create a popup menu for the tray icon
+    val popupMenu = PopupMenu()
+
+    // Add a menu item to show a message
+    val showMessageItem = MenuItem("UnmaskedLeague")
+    popupMenu.add(showMessageItem)
+
+    // Add an exit menu item
+    val exitItem = MenuItem("Stop")
+    exitItem.addActionListener {
+        systemTray.remove(trayIcon)
+        println("Exiting the application.")
+        clientJob.cancel()
+    }
+    popupMenu.add(exitItem)
+
+    // Set the popup menu to the tray icon
+    trayIcon.popupMenu = popupMenu
+    systemTray.add(trayIcon)
+    trayIcon.displayMessage("UnmaskedLeague", "UnmaskedLeague is running!", TrayIcon.MessageType.INFO)
 }
 
 private fun proxies(hosts: Map<String, LcdsHost>) = hosts.map { (region, lcds) ->

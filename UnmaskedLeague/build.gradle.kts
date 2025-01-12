@@ -41,7 +41,7 @@ kotlin {
                 implementation("io.arrow-kt:arrow-core:1.2.4")
                 // https://mvnrepository.com/artifact/org.yaml/snakeyaml
                 implementation("org.yaml:snakeyaml:2.3")
-                implementation("com.squareup.okio:okio:3.3.0")
+                implementation("com.squareup.okio:okio:3.10.2")
                 // https://mvnrepository.com/artifact/com.squareup.okhttp3/okhttp
                 implementation("com.squareup.okhttp3:okhttp:4.12.0")
                 // Check the 🔝 maven central badge 🔝 for the latest $kotlinProcessVersion

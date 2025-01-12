@@ -19,7 +19,7 @@ internal const val MESSAGE_ID_SIZE = 4
 class Amf0MessagesHandler(
     private val input: ByteReadChannel,
     private val output: ByteWriteChannel,
-    private val interceptor: (List<Amf0Node>) -> List<Amf0Node>
+    private val interceptor: (List<Amf0Node>) -> List<Amf0Node>,
 ) {
     private val incomingPartialRawMessages = mutableMapOf<Byte, RawRtmpPacket>()
     private val payloadBuffer = ByteArray(CHUNK_SIZE)
@@ -35,7 +35,7 @@ class Amf0MessagesHandler(
             if (packet.length != 0) {
                 val firstByte =
                     ((CHUNCK_HEADER_TYPE_3.toInt() shl 6) and 0b11000000) or (packet.header.channelId.toInt() and 0b00111111)
-                output.writeByte(firstByte)
+                output.writeByte(firstByte.toByte())
             }
         }
     }

@@ -1,5 +1,5 @@
 plugins {
-    kotlin("multiplatform") version "1.9.20"
+    kotlin("multiplatform") version "2.1.0"
 }
 val ktor_version: String by project
 

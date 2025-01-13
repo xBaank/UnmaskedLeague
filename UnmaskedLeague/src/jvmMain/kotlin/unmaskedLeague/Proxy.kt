@@ -87,13 +87,13 @@ class LeagueProxyClient internal constructor(
 
         val messagesHandler = Amf0MessagesHandler(clientReadChannel, serverWriteChannel, ::unmask)
 
-        val result = async(Dispatchers.IO) {
+        val lolServerToClientProxy = async(Dispatchers.IO) {
             messagesHandler.start()
         }
 
         //lolCLient -> proxy -> lolServer
         //We don't need to intercept these messages
-        val result2 = async(Dispatchers.IO) {
+        val lolClientToServerProxy = async(Dispatchers.IO) {
             val lolClientByteArray = ByteArray(1024)
             while (isActive) {
                 val bytes = serverReadChannel.readAvailable(lolClientByteArray)
@@ -109,7 +109,7 @@ class LeagueProxyClient internal constructor(
             }
         }
 
-        awaitAll(result, result2)
+        awaitAll(lolServerToClientProxy, lolClientToServerProxy)
     }
 
     private fun unmask(nodes: List<Amf0Node>): List<Amf0Node> {

@@ -1,13 +1,12 @@
 package unmaskedLeague
 
 import arrow.core.getOrElse
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
 import io.ktor.network.tls.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.*
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import rtmp.Amf0MessagesHandler
 import rtmp.amf0.*
 import simpleJson.*
@@ -56,10 +55,11 @@ class LeagueProxyClient internal constructor(
     private val host: String,
     private val port: Int,
 ) {
+    private val logger = KotlinLogging.logger { }
     suspend fun start() = coroutineScope {
         while (isActive) {
             val socket = serverSocket.accept()
-            println("Accepted connection from ${socket.remoteAddress} in ${socket.localAddress}")
+            logger.info { "Accepted connection from ${socket.remoteAddress} in ${socket.localAddress}" }
             launch(Dispatchers.IO) {
                 handle(socket)
             }
@@ -70,11 +70,7 @@ class LeagueProxyClient internal constructor(
         runCatching {
             handleSocket(socket)
         }.onFailure {
-            when (it) {
-                is ClosedReceiveChannelException -> return@coroutineScope
-                is CancellationException -> return@coroutineScope
-                else -> throw it
-            }
+            logger.error { it }
         }
     }
 
@@ -91,13 +87,13 @@ class LeagueProxyClient internal constructor(
 
         val messagesHandler = Amf0MessagesHandler(clientReadChannel, serverWriteChannel, ::unmask)
 
-        launch(Dispatchers.IO) {
+        val result = async(Dispatchers.IO) {
             messagesHandler.start()
         }
 
         //lolCLient -> proxy -> lolServer
         //We don't need to intercept these messages
-        launch(Dispatchers.IO) {
+        val result2 = async(Dispatchers.IO) {
             val lolClientByteArray = ByteArray(1024)
             while (isActive) {
                 val bytes = serverReadChannel.readAvailable(lolClientByteArray)
@@ -106,12 +102,14 @@ class LeagueProxyClient internal constructor(
                     socket.close()
                     clientSocket.close()
                     cancel("Socket closed")
+                    return@async
                 }
 
                 clientWriteChannel.writeFully(lolClientByteArray, 0, bytes)
             }
         }
 
+        awaitAll(result, result2)
     }
 
     private fun unmask(nodes: List<Amf0Node>): List<Amf0Node> {

@@ -1,0 +1,19 @@
+<configuration>
+    <!-- Define the pattern for the log messages -->
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"/>
+
+    <!-- Define the file appender -->
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <!-- File where logs will be written -->
+        <file>${user.home}/UnmaskedLeague/logs/application.log</file>
+        <append>true</append>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Set the root logger level and attach the file appender -->
+    <root level="info">
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>

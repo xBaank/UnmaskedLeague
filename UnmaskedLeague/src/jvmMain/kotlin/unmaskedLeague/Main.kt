@@ -2,6 +2,7 @@ package unmaskedLeague
 
 import arrow.core.getOrElse
 import com.github.pgreze.process.process
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.network.sockets.*
 import kotlinx.coroutines.*
 import okio.FileSystem
@@ -16,16 +17,18 @@ import simpleJson.get
 import java.awt.*
 import javax.swing.JOptionPane
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.system.exitProcess
 
 
 val proxyHosts = mutableMapOf<String, LcdsHost>()
 val yamlOptions = DumperOptions().apply { defaultFlowStyle = DumperOptions.FlowStyle.BLOCK }
 val yaml = Yaml(yamlOptions)
+val systemTray = SystemTray.getSystemTray()
+val logger = KotlinLogging.logger {}
 
 data class LcdsHost(val host: String, val port: Int)
 
 fun main(): Unit = runBlocking {
+    val proxies = mutableListOf<Job>()
     runCatching {
         if (isRiotClientRunning()) {
             val wantsToClose = askForClose(
@@ -36,10 +39,11 @@ fun main(): Unit = runBlocking {
             else return@runCatching
         }
         val hosts = getHosts()
-        proxies(hosts).forEach { launch(Dispatchers.IO) { it.start() } }
+        proxies += proxies(hosts).map { launch(Dispatchers.IO) { it.start() } }
         val clientJob = launch { startClient(hosts) }
-        showTray(clientJob)
+        val tray = showTray(clientJob)
         clientJob.join()
+        systemTray.remove(tray)
     }.onFailure {
         when (it) {
             is LeagueNotFoundException -> {
@@ -48,26 +52,26 @@ fun main(): Unit = runBlocking {
             }
 
             is CancellationException -> {
+                logger.warn { it.message }
                 return@onFailure
             }
 
             else -> {
                 showError(it.stackTraceToString(), it.message ?: "An error happened")
-                it.printStackTrace()
+                logger.error { it }
             }
         }
     }
-    exitProcess(0)
+
+    proxies.forEach { it.cancel() }
+    logger.info { "Exited" }
 }
 
-suspend fun showTray(clientJob: Job) = coroutineScope {
+fun showTray(clientJob: Job): TrayIcon? {
     if (!SystemTray.isSupported()) {
-        println("System tray is not supported on this system.")
-        return@coroutineScope
+        logger.info { "System tray is not supported on this system." }
+        return null
     }
-
-    // Create a SystemTray instance
-    val systemTray = SystemTray.getSystemTray()
 
     // Load an icon image for the tray (replace with your icon path)
     val iconImage = Toolkit.getDefaultToolkit().createImage(
@@ -89,7 +93,6 @@ suspend fun showTray(clientJob: Job) = coroutineScope {
     val exitItem = MenuItem("Stop")
     exitItem.addActionListener {
         systemTray.remove(trayIcon)
-        println("Exiting the application.")
         clientJob.cancel()
     }
     popupMenu.add(exitItem)
@@ -98,13 +101,14 @@ suspend fun showTray(clientJob: Job) = coroutineScope {
     trayIcon.popupMenu = popupMenu
     systemTray.add(trayIcon)
     trayIcon.displayMessage("UnmaskedLeague", "UnmaskedLeague is running!", TrayIcon.MessageType.INFO)
+    return trayIcon
 }
 
 private suspend fun proxies(hosts: Map<String, LcdsHost>) = hosts.map { (region, lcds) ->
     val proxyClient = LeagueProxyClient(lcds.host, lcds.port)
     val port = proxyClient.serverSocket.localAddress.port
     proxyHosts[region] = LcdsHost("127.0.0.1", port)
-    println("Created proxy for $region on port $port")
+    logger.info { "Created proxy for $region on port $port" }
     proxyClient
 }
 
@@ -131,8 +135,7 @@ private suspend fun startClient(hosts: Map<String, LcdsHost>) = coroutineScope {
             riotClientPath,
             "--launch-product=league_of_legends",
             "--launch-patchline=live",
-            "--disable-patching",
-            destroyForcibly = true
+            "--disable-patching"
         )
         cancel("League closed")
     } finally {

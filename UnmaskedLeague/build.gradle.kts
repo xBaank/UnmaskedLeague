@@ -40,7 +40,7 @@ kotlin {
                 implementation("io.github.xbaank:simpleJson-core:3.0.3")
                 implementation("io.arrow-kt:arrow-core:2.0.0")
                 // https://mvnrepository.com/artifact/org.yaml/snakeyaml
-                implementation("org.yaml:snakeyaml:2.3")
+                implementation("org.yaml:snakeyaml:2.4")
                 implementation("com.squareup.okio:okio:3.10.2")
                 // https://mvnrepository.com/artifact/com.squareup.okhttp3/okhttp
                 implementation("com.squareup.okhttp3:okhttp:4.12.0")

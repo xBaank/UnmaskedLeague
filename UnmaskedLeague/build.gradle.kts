@@ -37,7 +37,7 @@ kotlin {
             dependencies {
                 implementation("io.ktor:ktor-network:$ktor_version")
                 implementation("io.ktor:ktor-network-tls:$ktor_version")
-                implementation("io.github.xbaank:simpleJson-core:3.0.3")
+                implementation("io.github.xbaank:simpleJson-core:3.0.4")
                 implementation("io.arrow-kt:arrow-core:2.0.1")
                 // https://mvnrepository.com/artifact/org.yaml/snakeyaml
                 implementation("org.yaml:snakeyaml:2.4")

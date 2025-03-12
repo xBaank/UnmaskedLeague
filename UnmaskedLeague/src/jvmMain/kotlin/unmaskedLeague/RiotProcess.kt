@@ -5,17 +5,12 @@ import com.github.pgreze.process.process
 
 suspend fun isRiotClientRunning(): Boolean {
     val process = process(
-        "WMIC",
-        "PROCESS",
-        "WHERE",
-        "name='RiotClientServices.exe'",
-        "GET",
-        "commandline",
+        "tasklist",
         stdout = Redirect.CAPTURE
     )
-    return process.output.map(String::trim).contains("CommandLine")
+    return process.output.any { it.contains("RiotClientServices.exe") }
 }
 
 suspend fun killRiotClient() {
-    process("WMIC", "PROCESS", "WHERE", "name='RiotClientServices.exe'", "DELETE")
+    process("taskkill", "/F", "/IM", "RiotClientServices.exe")
 }

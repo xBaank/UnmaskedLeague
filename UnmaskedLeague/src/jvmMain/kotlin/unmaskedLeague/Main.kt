@@ -28,7 +28,7 @@ val logger = KotlinLogging.logger {}
 data class LcdsHost(val host: String, val port: Int)
 
 fun main(): Unit = runBlocking {
-    if(isLockfileTaken())  return@runBlocking
+    if (isLockfileTaken()) return@runBlocking
 
     val proxies = mutableListOf<Job>()
     runCatching {
@@ -40,7 +40,7 @@ fun main(): Unit = runBlocking {
             if (wantsToClose) killRiotClient()
             else return@runCatching
         }
-        val hosts = getHosts()
+        val hosts = getHosts().filter { it.key == regionData.first }
         proxies += proxies(hosts).map { launch(Dispatchers.IO) { it.start() } }
         val clientJob = launch { startClient(hosts) }
         val tray = showTray(clientJob)
@@ -115,7 +115,7 @@ private suspend fun proxies(hosts: Map<String, LcdsHost>) = hosts.map { (region,
 }
 
 private suspend fun startClient(hosts: Map<String, LcdsHost>) = coroutineScope {
-    val (riotClientPath, lolPath) = getLolPaths()
+    val (riotClientPath, lolPath) = lolPaths
     val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
     val systemYaml = FileSystem.SYSTEM.source(systemYamlPath).buffer().use { it.readUtf8() }
     val systemYamlMap = yaml.load<Map<String, Any>>(systemYaml)
@@ -146,7 +146,7 @@ private suspend fun startClient(hosts: Map<String, LcdsHost>) = coroutineScope {
     }
 }
 
-private fun getLolPaths(): Pair<String, String> {
+val lolPaths by lazy {
     val lolClientInstalls: Path = System.getenv("ALLUSERSPROFILE")
         ?.let { "$it/Riot Games/Metadata/league_of_legends.live/league_of_legends.live.product_settings.yaml" }
         ?.toPath(true)
@@ -167,14 +167,24 @@ private fun getLolPaths(): Pair<String, String> {
 
     val yamlMap = yaml.load<Map<String, Any>>(file.readUtf8())
     val lolPath: String = yamlMap["product_install_full_path"] as String
-    return Pair(riotClientPath, lolPath)
+    Pair(riotClientPath, lolPath)
+}
+
+val regionData by lazy {
+    val (_, lolPath) = lolPaths
+    val configPath = lolPath.toPath(true) / "Config" / "LeagueClientSettings.yaml"
+    val config = FileSystem.SYSTEM.source(configPath).buffer()
+    val configYaml = config.use { yaml.load<Map<String, Any>>(config.readUtf8()) }
+    val globals = configYaml.getMap("install").getMap("globals")
+    val locale = globals["locale"] as String
+    val region = globals["region"] as String
+    Pair(region, locale)
 }
 
 fun getHosts(): Map<String, LcdsHost> {
-    val (_, lolPath) = getLolPaths()
+    val (_, lolPath) = lolPaths
     val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
-    val systemYaml = FileSystem.SYSTEM.source(systemYamlPath)
-        .buffer()
+    val systemYaml = FileSystem.SYSTEM.source(systemYamlPath).buffer()
 
     val systemYamlMap = systemYaml.use { yaml.load<Map<String, Any>>(systemYaml.readUtf8()) }
     val hosts = mutableMapOf<String, LcdsHost>()

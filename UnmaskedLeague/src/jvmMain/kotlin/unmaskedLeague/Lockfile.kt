@@ -1,6 +1,7 @@
 package unmaskedLeague
 
 import java.nio.file.Paths
+import kotlin.jvm.optionals.getOrNull
 
 
 fun isLockfileTaken(): Boolean {
@@ -11,7 +12,7 @@ fun isLockfileTaken(): Boolean {
         val existingPid = lockfilePath.readText().trim().toLongOrNull()
         if (existingPid != null) {
             val processHandle = ProcessHandle.of(existingPid)
-            if (processHandle.isPresent && processHandle.get().isAlive) {
+            if (processHandle.isPresent && processHandle.getOrNull()?.isAlive == true) {
                 logger.info {"Another instance is already running with PID $existingPid. Exiting." }
                 return true
             } else {

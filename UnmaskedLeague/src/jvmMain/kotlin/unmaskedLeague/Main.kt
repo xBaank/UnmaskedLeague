@@ -22,12 +22,14 @@ import kotlin.coroutines.cancellation.CancellationException
 val proxyHosts = mutableMapOf<String, LcdsHost>()
 val yamlOptions = DumperOptions().apply { defaultFlowStyle = DumperOptions.FlowStyle.BLOCK }
 val yaml = Yaml(yamlOptions)
-val systemTray = SystemTray.getSystemTray()
+val systemTray: SystemTray = SystemTray.getSystemTray()
 val logger = KotlinLogging.logger {}
 
 data class LcdsHost(val host: String, val port: Int)
 
 fun main(): Unit = runBlocking {
+    if(isLockfileTaken())  return@runBlocking
+
     val proxies = mutableListOf<Job>()
     runCatching {
         if (isRiotClientRunning()) {

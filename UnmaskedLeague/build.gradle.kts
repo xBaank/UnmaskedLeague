@@ -35,6 +35,8 @@ kotlin {
     sourceSets {
         val jvmMain by getting {
             dependencies {
+                implementation("io.ktor:ktor-server-core:${ktor_version}")
+                implementation("io.ktor:ktor-server-cio:${ktor_version}")
                 implementation("io.ktor:ktor-network:$ktor_version")
                 implementation("io.ktor:ktor-network-tls:$ktor_version")
                 implementation("io.github.xbaank:simpleJson-core:3.0.4")

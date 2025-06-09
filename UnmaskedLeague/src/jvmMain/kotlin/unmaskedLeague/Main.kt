@@ -33,19 +33,16 @@ fun main(): Unit = runBlocking {
     val proxies = mutableListOf<Job>()
     runCatching {
         if (isRiotClientRunning()) {
-            val wantsToClose = askForClose(
-                "Do you want to close it? If you dont close it UnmaskedLeague won't be launched",
-                "Riot Client is already running"
-            )
-            if (wantsToClose) killRiotClient()
+            if (askForClose()) killRiotClient()
             else return@runCatching
         }
+        val configProxy = ConfigProxy(regionData.first, regionData.second)
+        val port = configProxy.start()
         val hosts = getHosts().filter { it.key == regionData.first }
         proxies += proxies(hosts).map { launch(Dispatchers.IO) { it.start() } }
-        val clientJob = launch { startClient(hosts) }
-        val tray = showTray(clientJob)
+        val clientJob = launch { startClient(hosts, port) }
+        showTray(clientJob)
         clientJob.join()
-        systemTray.remove(tray)
     }.onFailure {
         when (it) {
             is LeagueNotFoundException -> {
@@ -114,7 +111,7 @@ private suspend fun proxies(hosts: Map<String, LcdsHost>) = hosts.map { (region,
     proxyClient
 }
 
-private suspend fun startClient(hosts: Map<String, LcdsHost>) = coroutineScope {
+private suspend fun startClient(hosts: Map<String, LcdsHost>, configPort: Int) = coroutineScope {
     val (riotClientPath, lolPath) = lolPaths
     val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
     val systemYaml = FileSystem.SYSTEM.source(systemYamlPath).buffer().use { it.readUtf8() }
@@ -137,7 +134,8 @@ private suspend fun startClient(hosts: Map<String, LcdsHost>) = coroutineScope {
             riotClientPath,
             "--launch-product=league_of_legends",
             "--launch-patchline=live",
-            "--disable-patching"
+            """--client-config-url="http://127.0.0.1:${configPort}"""",
+            "--disable-patching",
         )
         cancel("League closed")
     } finally {
@@ -201,11 +199,11 @@ fun getHosts(): Map<String, LcdsHost> {
 private fun showError(msg: String, title: String) =
     JOptionPane.showMessageDialog(null, msg, title, JOptionPane.ERROR_MESSAGE)
 
-private fun askForClose(msg: String, title: String) =
+private fun askForClose() =
     JOptionPane.showConfirmDialog(
         null,
-        msg,
-        title,
+        "Do you want to close it? If you dont close it UnmaskedLeague won't be launched",
+        "Riot Client is already running",
         JOptionPane.YES_NO_OPTION,
         JOptionPane.ERROR_MESSAGE
     ) == JOptionPane.YES_OPTION

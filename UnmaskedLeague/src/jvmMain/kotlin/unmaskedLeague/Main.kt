@@ -7,6 +7,7 @@ import io.ktor.network.sockets.*
 import kotlinx.coroutines.*
 import okio.FileSystem
 import okio.Path
+import okio.Path.Companion.toOkioPath
 import okio.Path.Companion.toPath
 import okio.buffer
 import org.yaml.snakeyaml.DumperOptions
@@ -15,6 +16,7 @@ import simpleJson.asString
 import simpleJson.deserialized
 import simpleJson.get
 import java.awt.*
+import java.nio.file.Paths
 import javax.swing.JOptionPane
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -24,8 +26,14 @@ val yamlOptions = DumperOptions().apply { defaultFlowStyle = DumperOptions.FlowS
 val yaml = Yaml(yamlOptions)
 val systemTray: SystemTray = SystemTray.getSystemTray()
 val logger = KotlinLogging.logger {}
+val userProfile = System.getenv("USERPROFILE") ?: error("USERPROFILE not found")
+val systemYamlPatchedPath by lazy { companionPath / "system.yaml" }
+val companionPath by lazy { Paths.get(lolPaths.lolClientPath, "Config").toOkioPath() }
 
 data class LcdsHost(val host: String, val port: Int)
+data class Globals(val region: String, val locale: String)
+data class LolPaths(val riotClientPath: String, val lolClientPath: String)
+
 
 fun main(): Unit = runBlocking {
     if (isLockfileTaken()) return@runBlocking
@@ -36,9 +44,9 @@ fun main(): Unit = runBlocking {
             if (askForClose()) killRiotClient()
             else return@runCatching
         }
-        val configProxy = ConfigProxy(regionData.first, regionData.second)
+        val configProxy = ConfigProxy()
         val port = configProxy.start()
-        val hosts = getHosts().filter { it.key == regionData.first }
+        val hosts = getHosts().filter { it.key == regionData.region }
         proxies += proxies(hosts).map { launch(Dispatchers.IO) { it.start() } }
         val clientJob = launch { startClient(hosts, port) }
         showTray(clientJob)
@@ -127,15 +135,15 @@ private suspend fun startClient(hosts: Map<String, LcdsHost>, configPort: Int) =
         lcds["use_tls"] = false
     }
 
-    FileSystem.SYSTEM.sink(systemYamlPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
+    FileSystem.SYSTEM.createDirectory(companionPath)
+    FileSystem.SYSTEM.sink(systemYamlPatchedPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
 
     try {
         process(
             riotClientPath,
             "--launch-product=league_of_legends",
             "--launch-patchline=live",
-            """--client-config-url="http://127.0.0.1:${configPort}"""",
-            "--disable-patching",
+            """--client-config-url="http://127.0.0.1:${configPort}""""
         )
         cancel("League closed")
     } finally {
@@ -165,7 +173,7 @@ val lolPaths by lazy {
 
     val yamlMap = yaml.load<Map<String, Any>>(file.readUtf8())
     val lolPath: String = yamlMap["product_install_full_path"] as String
-    Pair(riotClientPath, lolPath)
+    LolPaths(riotClientPath, lolPath)
 }
 
 val regionData by lazy {
@@ -176,7 +184,7 @@ val regionData by lazy {
     val globals = configYaml.getMap("install").getMap("globals")
     val locale = globals["locale"] as String
     val region = globals["region"] as String
-    Pair(region, locale)
+    Globals(region, locale)
 }
 
 fun getHosts(): Map<String, LcdsHost> {

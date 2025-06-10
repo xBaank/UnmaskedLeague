@@ -19,6 +19,7 @@ import java.awt.*
 import java.nio.file.Paths
 import javax.swing.JOptionPane
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.system.exitProcess
 
 
 val proxyHosts = mutableMapOf<String, LcdsHost>()
@@ -39,16 +40,17 @@ fun main(): Unit = runBlocking {
     if (isLockfileTaken()) return@runBlocking
 
     val proxies = mutableListOf<Job>()
+    val configProxy = ConfigProxy()
+
     runCatching {
         if (isRiotClientRunning()) {
             if (askForClose()) killRiotClient()
             else return@runCatching
         }
-        val configProxy = ConfigProxy()
-        val port = configProxy.start()
+        configProxy.start()
         val hosts = getHosts().filter { it.key == regionData.region }
         proxies += proxies(hosts).map { launch(Dispatchers.IO) { it.start() } }
-        val clientJob = launch { startClient(hosts, port) }
+        val clientJob = launch { startClient(hosts, configProxy) }
         showTray(clientJob)
         clientJob.join()
     }.onFailure {
@@ -71,7 +73,9 @@ fun main(): Unit = runBlocking {
     }
 
     proxies.forEach { it.cancel() }
+    configProxy.stop()
     logger.info { "Exited" }
+    exitProcess(0)
 }
 
 fun showTray(clientJob: Job): TrayIcon? {
@@ -119,32 +123,33 @@ private suspend fun proxies(hosts: Map<String, LcdsHost>) = hosts.map { (region,
     proxyClient
 }
 
-private suspend fun startClient(hosts: Map<String, LcdsHost>, configPort: Int) = coroutineScope {
-    val (riotClientPath, lolPath) = lolPaths
-    val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
-    val systemYaml = FileSystem.SYSTEM.source(systemYamlPath).buffer().use { it.readUtf8() }
-    val systemYamlMap = yaml.load<Map<String, Any>>(systemYaml)
+private suspend fun startClient(hosts: Map<String, LcdsHost>, configProxy: ConfigProxy) =
+    coroutineScope {
+        val (riotClientPath, lolPath) = lolPaths
+        val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
+        val systemYaml = FileSystem.SYSTEM.source(systemYamlPath).buffer().use { it.readUtf8() }
+        val systemYamlMap = yaml.load<Map<String, Any>>(systemYaml)
 
-    systemYamlMap.getMap("region_data").forEach {
-        val region = it.key
-        if (!hosts.containsKey(region)) return@forEach
-        val lcds = it.value.getMap("servers").getMap("lcds") as MutableMap<String, Any?>
-        lcds["lcds_host"] = proxyHosts[region]!!.host
-        lcds["lcds_port"] = proxyHosts[region]!!.port
-        lcds["use_tls"] = false
+        systemYamlMap.getMap("region_data").forEach {
+            val region = it.key
+            if (!hosts.containsKey(region)) return@forEach
+            val lcds = it.value.getMap("servers").getMap("lcds") as MutableMap<String, Any?>
+            lcds["lcds_host"] = proxyHosts[region]!!.host
+            lcds["lcds_port"] = proxyHosts[region]!!.port
+            lcds["use_tls"] = false
+        }
+
+        FileSystem.SYSTEM.createDirectory(companionPath)
+        FileSystem.SYSTEM.sink(systemYamlPatchedPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
+
+        process(
+            riotClientPath,
+            "--launch-product=league_of_legends",
+            "--launch-patchline=live",
+            """--client-config-url="http://127.0.0.1:${configProxy.port}""""
+        )
+        cancel("League closed")
     }
-
-    FileSystem.SYSTEM.createDirectory(companionPath)
-    FileSystem.SYSTEM.sink(systemYamlPatchedPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
-
-    process(
-        riotClientPath,
-        "--launch-product=league_of_legends",
-        "--launch-patchline=live",
-        """--client-config-url="http://127.0.0.1:${configPort}""""
-    )
-    cancel("League closed")
-}
 
 val lolPaths by lazy {
     val lolClientInstalls: Path = System.getenv("ALLUSERSPROFILE")

@@ -21,7 +21,10 @@ import io.ktor.client.engine.cio.CIO as ClientCIO
 //https://clientconfig.rpg.riotgames.com/api/v1/config/public?os=windows&region={REGION_HERE}&app=league_of_legends&version=1&patchline=live
 
 class ConfigProxy() {
+    var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
+    var port = -1
     val url = "https://clientconfig.rpg.riotgames.com"
+
     fun Headers.isJson() = this[HttpHeaders.ContentType]?.contains("application/json") == true
 
     fun spoofArguments(json: JsonNode): JsonNode {
@@ -44,11 +47,13 @@ class ConfigProxy() {
         return json
     }
 
-    suspend fun start(): Int {
+    fun stop() = server?.stop(1000, 5000)
+
+    suspend fun start() {
         val client = HttpClient(ClientCIO) {
             install(ContentEncoding) { gzip() }
         }
-        val server = embeddedServer(CIO, port = 0) {
+        server = embeddedServer(CIO, port = 0) {
             routing {
                 route("{...}") {
                     handle {
@@ -58,7 +63,8 @@ class ConfigProxy() {
 
                             val response = client.request(url) {
                                 method = call.request.httpMethod
-                                val reqHeaders = call.request.headers.filter { key, value -> !key.equals("Host", true) }
+                                val reqHeaders =
+                                    call.request.headers.filter { key, value -> !key.equals("Host", true) }
                                 headers.appendAll(reqHeaders)
                                 setBody(call.receiveChannel().toByteArray())
                             }
@@ -93,7 +99,6 @@ class ConfigProxy() {
                 }
             }
         }.start(false)
-
-        return server.engine.resolvedConnectors().first().port
+        port = server!!.engine.resolvedConnectors().first().port
     }
 }

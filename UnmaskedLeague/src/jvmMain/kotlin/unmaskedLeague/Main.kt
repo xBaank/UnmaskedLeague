@@ -124,7 +124,6 @@ private suspend fun startClient(hosts: Map<String, LcdsHost>, configPort: Int) =
     val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
     val systemYaml = FileSystem.SYSTEM.source(systemYamlPath).buffer().use { it.readUtf8() }
     val systemYamlMap = yaml.load<Map<String, Any>>(systemYaml)
-    val systemYamlMapOriginal = yaml.load<Map<String, Any>>(systemYaml)
 
     systemYamlMap.getMap("region_data").forEach {
         val region = it.key
@@ -138,18 +137,13 @@ private suspend fun startClient(hosts: Map<String, LcdsHost>, configPort: Int) =
     FileSystem.SYSTEM.createDirectory(companionPath)
     FileSystem.SYSTEM.sink(systemYamlPatchedPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
 
-    try {
-        process(
-            riotClientPath,
-            "--launch-product=league_of_legends",
-            "--launch-patchline=live",
-            """--client-config-url="http://127.0.0.1:${configPort}""""
-        )
-        cancel("League closed")
-    } finally {
-        //Leave as it was originally
-        FileSystem.SYSTEM.sink(systemYamlPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMapOriginal)) }
-    }
+    process(
+        riotClientPath,
+        "--launch-product=league_of_legends",
+        "--launch-patchline=live",
+        """--client-config-url="http://127.0.0.1:${configPort}""""
+    )
+    cancel("League closed")
 }
 
 val lolPaths by lazy {

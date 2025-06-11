@@ -1,11 +1,10 @@
 package unmaskedLeague
 
-import java.nio.file.Paths
 import kotlin.jvm.optionals.getOrNull
 
 
 fun isLockfileTaken(): Boolean {
-    val lockfilePath = Paths.get(userProfile, "UnmaskedLeague", "lockfile").toFile()
+    val lockfilePath = (unmaskedLeagueFolder / "lockfile").toFile()
 
     if (lockfilePath.exists()) {
         val existingPid = lockfilePath.readText().trim().toLongOrNull()

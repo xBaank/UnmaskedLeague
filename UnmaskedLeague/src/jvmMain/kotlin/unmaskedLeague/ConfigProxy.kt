@@ -2,8 +2,6 @@ package unmaskedLeague
 
 import arrow.core.getOrElse
 import arrow.core.raise.either
-import io.ktor.client.*
-import io.ktor.client.plugins.compression.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -15,13 +13,9 @@ import io.ktor.server.routing.*
 import io.ktor.util.*
 import io.ktor.utils.io.*
 import simpleJson.*
-import io.ktor.client.engine.cio.CIO as ClientCIO
 
-//TODO Use this url to download the latest yaml with manifest downloader and add --system-yaml-override
-//https://clientconfig.rpg.riotgames.com/api/v1/config/public?os=windows&region={REGION_HERE}&app=league_of_legends&version=1&patchline=live
-
-class ConfigProxy() {
-    var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
+class ConfigProxy {
+    private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
     var port = -1
     val url = "https://clientconfig.rpg.riotgames.com"
 
@@ -50,9 +44,6 @@ class ConfigProxy() {
     fun stop() = server?.stop(1000, 5000)
 
     suspend fun start() {
-        val client = HttpClient(ClientCIO) {
-            install(ContentEncoding) { gzip() }
-        }
         server = embeddedServer(CIO, port = 0) {
             routing {
                 route("{...}") {

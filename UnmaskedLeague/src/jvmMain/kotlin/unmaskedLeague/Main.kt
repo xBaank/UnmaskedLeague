@@ -3,6 +3,8 @@ package unmaskedLeague
 import arrow.core.getOrElse
 import com.github.pgreze.process.process
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.*
+import io.ktor.client.plugins.compression.*
 import io.ktor.network.sockets.*
 import kotlinx.coroutines.*
 import okio.FileSystem
@@ -19,7 +21,7 @@ import java.awt.*
 import java.nio.file.Paths
 import javax.swing.JOptionPane
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.system.exitProcess
+import io.ktor.client.engine.cio.CIO as ClientCIO
 
 
 val proxyHosts = mutableMapOf<String, LcdsHost>()
@@ -28,8 +30,10 @@ val yaml = Yaml(yamlOptions)
 val systemTray: SystemTray = SystemTray.getSystemTray()
 val logger = KotlinLogging.logger {}
 val userProfile = System.getenv("USERPROFILE") ?: error("USERPROFILE not found")
-val systemYamlPatchedPath by lazy { companionPath / "system.yaml" }
+val unmaskedLeagueFolder = userProfile.toPath() / "UnmaskedLeague"
 val companionPath by lazy { Paths.get(lolPaths.lolClientPath, "Config").toOkioPath() }
+val systemYamlPatchedPath by lazy { companionPath / "system.yaml" }
+val client = HttpClient(ClientCIO) { install(ContentEncoding) { gzip() } }
 
 data class LcdsHost(val host: String, val port: Int)
 data class Globals(val region: String, val locale: String)
@@ -41,7 +45,7 @@ fun main(): Unit = runBlocking {
 
     val proxies = mutableListOf<Job>()
     val configProxy = ConfigProxy()
-
+    var trayIcon: TrayIcon? = null
     runCatching {
         if (isRiotClientRunning()) {
             if (askForClose()) killRiotClient()
@@ -51,7 +55,7 @@ fun main(): Unit = runBlocking {
         val hosts = getHosts().filter { it.key == regionData.region }
         proxies += proxies(hosts).map { launch(Dispatchers.IO) { it.start() } }
         val clientJob = launch { startClient(hosts, configProxy) }
-        showTray(clientJob)
+        trayIcon = showTray(clientJob)
         clientJob.join()
     }.onFailure {
         when (it) {
@@ -74,8 +78,9 @@ fun main(): Unit = runBlocking {
 
     proxies.forEach { it.cancel() }
     configProxy.stop()
+    client.close()
+    systemTray.remove(trayIcon)
     logger.info { "Exited" }
-    exitProcess(0)
 }
 
 fun showTray(clientJob: Job): TrayIcon? {

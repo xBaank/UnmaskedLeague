@@ -20,7 +20,7 @@ kotlin {
             dependencies {
                 implementation("io.ktor:ktor-network:$ktor_version")
                 implementation("io.ktor:ktor-network-tls:$ktor_version")
-                implementation("com.squareup.okio:okio:3.10.2")
+                implementation("com.squareup.okio:okio:3.13.0")
             }
         }
         val commonTest by getting {

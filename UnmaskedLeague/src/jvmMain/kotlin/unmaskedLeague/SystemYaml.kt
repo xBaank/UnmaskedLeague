@@ -1,16 +1,27 @@
 package unmaskedLeague
 
+import arrow.core.getOrElse
+import arrow.core.raise.either
+import com.github.pgreze.process.Redirect
+import com.github.pgreze.process.process
+import com.github.pgreze.process.unwrap
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import io.ktor.http.*
+import simpleJson.asArray
+import simpleJson.asString
 import simpleJson.deserialized
+import simpleJson.get
 import java.io.File
 import java.io.InputStream
 
 fun extractResourceToFile(): File {
-    val inputStream: InputStream? = object {}.javaClass.getResourceAsStream("ManifestDownloader.exe")
+    val file = (unmaskedLeagueFolder / "ManifestDownloader.exe").toFile()
+    if (file.exists()) return file
+
+    val inputStream: InputStream? = object {}.javaClass.classLoader.getResourceAsStream("ManifestDownloader.exe")
     requireNotNull(inputStream) { "Manifest downloader not found" }
 
-    val file = (unmaskedLeagueFolder / "ManifestDownloader.exe").toFile()
     file.outputStream().use { output ->
         inputStream.copyTo(output)
     }
@@ -19,7 +30,28 @@ fun extractResourceToFile(): File {
 }
 
 suspend fun downloadLatestSystemYaml(region: String) {
+    extractResourceToFile()
     val response =
         client.get("https://clientconfig.rpg.riotgames.com/api/v1/config/public?os=windows&region=$region&app=league_of_legends&version=1&patchline=live")
-    val body = response.bodyAsText().deserialized().getOrNull()
+    require(response.status.isSuccess())
+    val body = response.bodyAsText().deserialized().getOrElse { throw it }
+    val configurations =
+        body["keystone.products.league_of_legends.patchlines.live"]["platforms"]["win"]["configurations"]
+    val manifestUrl = either {
+        configurations.asArray().bind().first { it["id"].asString().bind() == region }["patch_url"].asString().bind()
+    }.getOrElse { throw it }
+
+    val process = process(
+        (unmaskedLeagueFolder / "ManifestDownloader.exe").toString(),
+        manifestUrl,
+        "--filter",
+        "system.yaml",
+        "--no-langs",
+        "-o",
+        companionPath.toString(),
+        stderr = Redirect.CAPTURE,
+        stdout = Redirect.CAPTURE
+    )
+
+    if (process.unwrap().isNotEmpty()) logger.info { process.output.joinToString("") }
 }

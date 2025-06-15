@@ -51,6 +51,7 @@ fun main(): Unit = runBlocking {
             if (askForClose()) killRiotClient()
             else return@runCatching
         }
+        downloadLatestSystemYaml(regionData.region)
         configProxy.start()
         val hosts = getHosts().filter { it.key == regionData.region }
         proxies += proxies(hosts).map { launch(Dispatchers.IO) { it.start() } }
@@ -130,9 +131,7 @@ private suspend fun proxies(hosts: Map<String, LcdsHost>) = hosts.map { (region,
 
 private suspend fun startClient(hosts: Map<String, LcdsHost>, configProxy: ConfigProxy) =
     coroutineScope {
-        val (riotClientPath, lolPath) = lolPaths
-        val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
-        val systemYaml = FileSystem.SYSTEM.source(systemYamlPath).buffer().use { it.readUtf8() }
+        val systemYaml = FileSystem.SYSTEM.source(systemYamlPatchedPath).buffer().use { it.readUtf8() }
         val systemYamlMap = yaml.load<Map<String, Any>>(systemYaml)
 
         systemYamlMap.getMap("region_data").forEach {
@@ -148,7 +147,7 @@ private suspend fun startClient(hosts: Map<String, LcdsHost>, configProxy: Confi
         FileSystem.SYSTEM.sink(systemYamlPatchedPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
 
         process(
-            riotClientPath,
+            lolPaths.riotClientPath,
             "--launch-product=league_of_legends",
             "--launch-patchline=live",
             """--client-config-url="http://127.0.0.1:${configProxy.port}""""
@@ -181,20 +180,23 @@ val lolPaths by lazy {
 }
 
 val regionData by lazy {
-    val (_, lolPath) = lolPaths
-    val configPath = lolPath.toPath(true) / "Config" / "LeagueClientSettings.yaml"
-    val config = FileSystem.SYSTEM.source(configPath).buffer()
-    val configYaml = config.use { yaml.load<Map<String, Any>>(config.readUtf8()) }
-    val globals = configYaml.getMap("install").getMap("globals")
-    val locale = globals["locale"] as String
-    val region = globals["region"] as String
-    Globals(region, locale)
+    try {
+        val (_, lolPath) = lolPaths
+        val configPath = lolPath.toPath(true) / "Config" / "LeagueClientSettings.yaml"
+        val config = FileSystem.SYSTEM.source(configPath).buffer()
+        val configYaml = config.use { yaml.load<Map<String, Any>>(config.readUtf8()) }
+        val globals = configYaml.getMap("install").getMap("globals")
+        val locale = globals["locale"] as String
+        val region = globals["region"] as String
+        Globals(region, locale)
+    } catch (ex: Throwable) {
+        logger.error { ex }
+        Globals("EUW", "en_GB")
+    }
 }
 
 fun getHosts(): Map<String, LcdsHost> {
-    val (_, lolPath) = lolPaths
-    val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
-    val systemYaml = FileSystem.SYSTEM.source(systemYamlPath).buffer()
+    val systemYaml = FileSystem.SYSTEM.source(systemYamlPatchedPath).buffer()
 
     val systemYamlMap = systemYaml.use { yaml.load<Map<String, Any>>(systemYaml.readUtf8()) }
     val hosts = mutableMapOf<String, LcdsHost>()

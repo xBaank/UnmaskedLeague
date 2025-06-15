@@ -3,10 +3,13 @@ package unmaskedLeague
 import arrow.core.getOrElse
 import com.github.pgreze.process.process
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.*
+import io.ktor.client.plugins.compression.*
 import io.ktor.network.sockets.*
 import kotlinx.coroutines.*
 import okio.FileSystem
 import okio.Path
+import okio.Path.Companion.toOkioPath
 import okio.Path.Companion.toPath
 import okio.buffer
 import org.yaml.snakeyaml.DumperOptions
@@ -15,35 +18,46 @@ import simpleJson.asString
 import simpleJson.deserialized
 import simpleJson.get
 import java.awt.*
+import java.nio.file.Paths
 import javax.swing.JOptionPane
 import kotlin.coroutines.cancellation.CancellationException
+import io.ktor.client.engine.cio.CIO as ClientCIO
 
 
 val proxyHosts = mutableMapOf<String, LcdsHost>()
 val yamlOptions = DumperOptions().apply { defaultFlowStyle = DumperOptions.FlowStyle.BLOCK }
 val yaml = Yaml(yamlOptions)
-val systemTray = SystemTray.getSystemTray()
+val systemTray: SystemTray = SystemTray.getSystemTray()
 val logger = KotlinLogging.logger {}
+val userProfile = System.getenv("USERPROFILE") ?: error("USERPROFILE not found")
+val unmaskedLeagueFolder = userProfile.toPath() / "UnmaskedLeague"
+val companionPath by lazy { Paths.get(lolPaths.lolClientPath, "Config").toOkioPath() }
+val systemYamlPatchedPath by lazy { companionPath / "system.yaml" }
+val client = HttpClient(ClientCIO) { install(ContentEncoding) { gzip() } }
 
 data class LcdsHost(val host: String, val port: Int)
+data class Globals(val region: String, val locale: String)
+data class LolPaths(val riotClientPath: String, val lolClientPath: String)
+
 
 fun main(): Unit = runBlocking {
+    if (isLockfileTaken()) return@runBlocking
+
     val proxies = mutableListOf<Job>()
+    val configProxy = ConfigProxy()
+    var trayIcon: TrayIcon? = null
     runCatching {
         if (isRiotClientRunning()) {
-            val wantsToClose = askForClose(
-                "Do you want to close it? If you dont close it UnmaskedLeague won't be launched",
-                "Riot Client is already running"
-            )
-            if (wantsToClose) killRiotClient()
+            if (askForClose()) killRiotClient()
             else return@runCatching
         }
-        val hosts = getHosts()
+        downloadLatestSystemYaml(regionData.region)
+        configProxy.start()
+        val hosts = getHosts().filter { it.key == regionData.region }
         proxies += proxies(hosts).map { launch(Dispatchers.IO) { it.start() } }
-        val clientJob = launch { startClient(hosts) }
-        val tray = showTray(clientJob)
+        val clientJob = launch { startClient(hosts, configProxy) }
+        trayIcon = showTray(clientJob)
         clientJob.join()
-        systemTray.remove(tray)
     }.onFailure {
         when (it) {
             is LeagueNotFoundException -> {
@@ -64,6 +78,9 @@ fun main(): Unit = runBlocking {
     }
 
     proxies.forEach { it.cancel() }
+    configProxy.stop()
+    client.close()
+    systemTray.remove(trayIcon)
     logger.info { "Exited" }
 }
 
@@ -112,39 +129,33 @@ private suspend fun proxies(hosts: Map<String, LcdsHost>) = hosts.map { (region,
     proxyClient
 }
 
-private suspend fun startClient(hosts: Map<String, LcdsHost>) = coroutineScope {
-    val (riotClientPath, lolPath) = getLolPaths()
-    val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
-    val systemYaml = FileSystem.SYSTEM.source(systemYamlPath).buffer().use { it.readUtf8() }
-    val systemYamlMap = yaml.load<Map<String, Any>>(systemYaml)
-    val systemYamlMapOriginal = yaml.load<Map<String, Any>>(systemYaml)
+private suspend fun startClient(hosts: Map<String, LcdsHost>, configProxy: ConfigProxy) =
+    coroutineScope {
+        val systemYaml = FileSystem.SYSTEM.source(systemYamlPatchedPath).buffer().use { it.readUtf8() }
+        val systemYamlMap = yaml.load<Map<String, Any>>(systemYaml)
 
-    systemYamlMap.getMap("region_data").forEach {
-        val region = it.key
-        if (!hosts.containsKey(region)) return@forEach
-        val lcds = it.value.getMap("servers").getMap("lcds") as MutableMap<String, Any?>
-        lcds["lcds_host"] = proxyHosts[region]!!.host
-        lcds["lcds_port"] = proxyHosts[region]!!.port
-        lcds["use_tls"] = false
-    }
+        systemYamlMap.getMap("region_data").forEach {
+            val region = it.key
+            if (!hosts.containsKey(region)) return@forEach
+            val lcds = it.value.getMap("servers").getMap("lcds") as MutableMap<String, Any?>
+            lcds["lcds_host"] = proxyHosts[region]!!.host
+            lcds["lcds_port"] = proxyHosts[region]!!.port
+            lcds["use_tls"] = false
+        }
 
-    FileSystem.SYSTEM.sink(systemYamlPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
+        FileSystem.SYSTEM.createDirectory(companionPath)
+        FileSystem.SYSTEM.sink(systemYamlPatchedPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMap)) }
 
-    try {
         process(
-            riotClientPath,
+            lolPaths.riotClientPath,
             "--launch-product=league_of_legends",
             "--launch-patchline=live",
-            "--disable-patching"
+            """--client-config-url="http://127.0.0.1:${configProxy.port}""""
         )
         cancel("League closed")
-    } finally {
-        //Leave as it was originally
-        FileSystem.SYSTEM.sink(systemYamlPath).buffer().use { it.writeUtf8(yaml.dump(systemYamlMapOriginal)) }
     }
-}
 
-private fun getLolPaths(): Pair<String, String> {
+val lolPaths by lazy {
     val lolClientInstalls: Path = System.getenv("ALLUSERSPROFILE")
         ?.let { "$it/Riot Games/Metadata/league_of_legends.live/league_of_legends.live.product_settings.yaml" }
         ?.toPath(true)
@@ -165,14 +176,27 @@ private fun getLolPaths(): Pair<String, String> {
 
     val yamlMap = yaml.load<Map<String, Any>>(file.readUtf8())
     val lolPath: String = yamlMap["product_install_full_path"] as String
-    return Pair(riotClientPath, lolPath)
+    LolPaths(riotClientPath, lolPath)
+}
+
+val regionData by lazy {
+    try {
+        val (_, lolPath) = lolPaths
+        val configPath = lolPath.toPath(true) / "Config" / "LeagueClientSettings.yaml"
+        val config = FileSystem.SYSTEM.source(configPath).buffer()
+        val configYaml = config.use { yaml.load<Map<String, Any>>(config.readUtf8()) }
+        val globals = configYaml.getMap("install").getMap("globals")
+        val locale = globals["locale"] as String
+        val region = globals["region"] as String
+        Globals(region, locale)
+    } catch (ex: Throwable) {
+        logger.error { ex }
+        Globals("EUW", "en_GB")
+    }
 }
 
 fun getHosts(): Map<String, LcdsHost> {
-    val (_, lolPath) = getLolPaths()
-    val systemYamlPath = lolPath.toPath(true).resolve("system.yaml")
-    val systemYaml = FileSystem.SYSTEM.source(systemYamlPath)
-        .buffer()
+    val systemYaml = FileSystem.SYSTEM.source(systemYamlPatchedPath).buffer()
 
     val systemYamlMap = systemYaml.use { yaml.load<Map<String, Any>>(systemYaml.readUtf8()) }
     val hosts = mutableMapOf<String, LcdsHost>()
@@ -189,11 +213,11 @@ fun getHosts(): Map<String, LcdsHost> {
 private fun showError(msg: String, title: String) =
     JOptionPane.showMessageDialog(null, msg, title, JOptionPane.ERROR_MESSAGE)
 
-private fun askForClose(msg: String, title: String) =
+private fun askForClose() =
     JOptionPane.showConfirmDialog(
         null,
-        msg,
-        title,
+        "Do you want to close it? If you dont close it UnmaskedLeague won't be launched",
+        "Riot Client is already running",
         JOptionPane.YES_NO_OPTION,
         JOptionPane.ERROR_MESSAGE
     ) == JOptionPane.YES_OPTION

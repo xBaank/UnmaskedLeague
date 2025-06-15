@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<module version="4">
-  <component name="AdditionalModuleElements">
-    <content url="file://$MODULE_DIR$/../../../UnmaskedLeague/src/commonMain" dumb="true">
-      <sourceFolder url="file://$MODULE_DIR$/../../../UnmaskedLeague/src/commonMain/resources" type="java-resource" />
-    </content>
-  </component>
-</module>

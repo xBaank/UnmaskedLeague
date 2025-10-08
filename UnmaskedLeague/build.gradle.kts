@@ -1,5 +1,4 @@
 import org.gradle.jvm.tasks.Jar
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("multiplatform") version "2.1.21"
@@ -11,15 +10,11 @@ repositories {
 
 val ktor_version: String by project
 val kotlinProcessVersion: String by project
+
 kotlin {
+    jvmToolchain(11)
     jvm {
-        java {
-            sourceCompatibility = JavaVersion.VERSION_11
-            targetCompatibility = JavaVersion.VERSION_11
-        }
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_11)
-        }
+        withJava()
         val jvmJar by tasks.getting(Jar::class) {
             duplicatesStrategy = DuplicatesStrategy.INCLUDE
             doFirst {

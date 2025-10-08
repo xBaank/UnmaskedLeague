@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     kotlin("multiplatform") version "2.1.21"
 }
@@ -10,11 +8,8 @@ repositories {
 }
 
 kotlin {
-    jvm {
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_11)
-        }
-    }
+    jvmToolchain(11)
+    jvm()
     sourceSets {
         val commonMain by getting {
             dependencies {

@@ -14,6 +14,8 @@ val kotlinProcessVersion: String by project
 kotlin {
     jvmToolchain(11)
     jvm {
+        //Removing it causes `Configuration with name 'runtimeClasspath' not found.`
+        withJava()
         val jvmJar by tasks.getting(Jar::class) {
             duplicatesStrategy = DuplicatesStrategy.INCLUDE
             doFirst {

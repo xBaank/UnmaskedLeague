@@ -25,7 +25,10 @@ import io.ktor.client.engine.cio.CIO as ClientCIO
 
 
 val proxyHosts = mutableMapOf<String, LcdsHost>()
-val yamlOptions = DumperOptions().apply { defaultFlowStyle = DumperOptions.FlowStyle.BLOCK }
+val yamlOptions = DumperOptions().apply {
+    defaultFlowStyle = DumperOptions.FlowStyle.BLOCK
+    isExplicitStart = true
+}
 val yaml = Yaml(yamlOptions)
 val systemTray: SystemTray = SystemTray.getSystemTray()
 val logger = KotlinLogging.logger {}

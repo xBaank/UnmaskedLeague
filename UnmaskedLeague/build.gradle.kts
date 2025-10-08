@@ -14,7 +14,6 @@ val kotlinProcessVersion: String by project
 kotlin {
     jvmToolchain(11)
     jvm {
-        withJava()
         val jvmJar by tasks.getting(Jar::class) {
             duplicatesStrategy = DuplicatesStrategy.INCLUDE
             doFirst {

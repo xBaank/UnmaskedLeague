@@ -1,7 +1,7 @@
 import org.gradle.jvm.tasks.Jar
 
 plugins {
-    kotlin("multiplatform") version "2.1.21"
+    kotlin("multiplatform") version "2.2.20"
 }
 
 repositories {

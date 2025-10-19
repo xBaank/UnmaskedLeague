@@ -45,7 +45,7 @@ kotlin {
                 implementation("com.squareup.okhttp3:okhttp:5.2.0")
                 implementation("io.github.oshai:kotlin-logging-jvm:7.0.13")
                 // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
-                implementation("ch.qos.logback:logback-classic:1.5.19")
+                implementation("ch.qos.logback:logback-classic:1.5.20")
                 // Check the 🔝 maven central badge 🔝 for the latest $kotlinProcessVersion
                 implementation("com.github.pgreze:kotlin-process:$kotlinProcessVersion")
                 implementation(project(":Rtmp"))

@@ -113,16 +113,6 @@ class LeagueProxyClient internal constructor(
     }
 
     private suspend fun unmask(nodes: List<Amf0Node>): List<Amf0Node> {
-        println(
-            getSummonersData(
-                listOf(
-                    "9e216ea5-f64f-5e9c-ba00-477b5eaf1002",
-                    "e2390091-fac4-5ecb-b818-53aef979cbbc",
-                    "bbc9a6d9-34d5-5d98-acbe-6c1e7bca11c6",
-                    "b812f96f-3e35-58eb-932f-5a21bb3b2abc"
-                )
-            )
-        )
         val body = nodes.firstOrNull { it["body"] != null }?.get("body")
 
         val isCompressed = body?.get("compressedPayload")?.toAmf0Boolean()?.value ?: return nodes

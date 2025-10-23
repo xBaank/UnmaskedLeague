@@ -113,6 +113,16 @@ class LeagueProxyClient internal constructor(
     }
 
     private suspend fun unmask(nodes: List<Amf0Node>): List<Amf0Node> {
+        println(
+            getSummonersData(
+                listOf(
+                    "9e216ea5-f64f-5e9c-ba00-477b5eaf1002",
+                    "e2390091-fac4-5ecb-b818-53aef979cbbc",
+                    "bbc9a6d9-34d5-5d98-acbe-6c1e7bca11c6",
+                    "b812f96f-3e35-58eb-932f-5a21bb3b2abc"
+                )
+            )
+        )
         val body = nodes.firstOrNull { it["body"] != null }?.get("body")
 
         val isCompressed = body?.get("compressedPayload")?.toAmf0Boolean()?.value ?: return nodes
@@ -121,15 +131,15 @@ class LeagueProxyClient internal constructor(
         val json = if (isCompressed) payloadGzip.base64Ungzip() else payloadGzip
         val payload = json.deserialized().getOrElse { throw it } // Can this come in other formats?
 
-
         if (payload["championSelectState"]["showQuitButton"].isRight()) {
             payload["championSelectState"]["showQuitButton"] = true
         }
 
-        println(payload.serializedPretty())
-
-        if (payload["queueId"].asInt().getOrNull() != SOLOQ_ID) return nodes
-
+        if (payload["queueId"].asInt().getOrNull() != SOLOQ_ID) {
+            val serialized = payload.serialized()
+            body["payload"] = if (isCompressed) serialized.gzipBase64().toAmf0String() else serialized.toAmf0String()
+            return nodes
+        }
 
         val playersPuuids = payload["championSelectState"]["cells"]["alliedTeam"].asArray().getOrNull()
             ?.filter { it["nameVisibilityType"].asString().getOrNull() == "HIDDEN" }
@@ -144,9 +154,9 @@ class LeagueProxyClient internal constructor(
             if (node["cellId"].asInt().getOrNull() == localCellID) return@forEach
 
             val puuid = node["puuid"].asString().getOrNull()
-            val summonerData = summonersData.first { it.puuid == puuid }
-            if (node["gameName"].isRight()) node["gameName"] = summonerData.gameName
-            if (node["tagLine"].isRight()) node["tagLine"] = summonerData.tagLine
+            val summonerData = summonersData?.firstOrNull { it.puuid == puuid }
+            if (node["gameName"].isRight()) node["gameName"] = summonerData?.gameName ?: ""
+            if (node["tagLine"].isRight()) node["tagLine"] = summonerData?.tagLine ?: ""
             if (node["nameVisibilityType"].isRight()) node["nameVisibilityType"] = "VISIBLE"
         }
 

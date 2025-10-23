@@ -1,30 +1,33 @@
 package unmaskedLeague
 
 import arrow.core.getOrElse
-import io.github.reactivecircus.cache4k.Cache
-import kotlinx.coroutines.suspendCancellableCoroutine
-import okhttp3.*
+import com.mayakapps.kache.InMemoryKache
+import com.mayakapps.kache.KacheStrategy
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okio.FileSystem
-import okio.IOException
 import okio.Path.Companion.toPath
 import okio.buffer
+import ru.gildor.coroutines.okhttp.await
 import simpleJson.*
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import kotlin.time.Duration.Companion.minutes
 
 data class LcuData(val protocol: String, val port: Int, val auth: String)
 data class SummonerData(val puuid: String, val gameName: String, val tagLine: String)
 
-val cache = Cache.Builder<List<String>, List<SummonerData>>().expireAfterAccess(5.minutes).build()
+val cache = InMemoryKache<List<String>, List<SummonerData>>(maxSize = 1 * 1024 * 1024) {
+    strategy = KacheStrategy.LRU
+    expireAfterAccessDuration = 5.minutes
+}
 
 
-suspend fun getSummonersData(puuids: List<String>) = cache.get(puuids) {
+suspend fun getSummonersData(puuids: List<String>) = cache.getOrPut(puuids) {
+    logger.info { "Getting summoner data for $puuids" }
     val (protocol, port, auth) = getLcuData()
 
     val body = puuids.map { it.asJson() }.asJson().serialized()
@@ -36,8 +39,7 @@ suspend fun getSummonersData(puuids: List<String>) = cache.get(puuids) {
         .post(body.toRequestBody(mediaType))
         .build()
 
-    val response = lcuClient.await(request)
-
+    val response = lcuClient.newCall(request).await()
 
     val textBody = response.body.source().readString(Charsets.UTF_8)
 
@@ -76,18 +78,3 @@ fun unsafeOkHttpClient(): OkHttpClient {
         .hostnameVerifier { _, _ -> true }
         .build()
 }
-
-suspend fun OkHttpClient.await(request: Request): Response =
-    suspendCancellableCoroutine { cont ->
-        val call = newCall(request)
-        cont.invokeOnCancellation { call.cancel() }
-        call.enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                cont.resumeWithException(e)
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                cont.resume(response)
-            }
-        })
-    }

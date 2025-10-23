@@ -62,7 +62,6 @@ fun main(): Unit = runBlocking {
         val clientJob = launch { startClient(hosts, configProxy) }
         trayIcon = showTray(clientJob)
         clientJob.join()
-        cache.invalidateAll()
     }.onFailure {
         when (it) {
             is LeagueNotFoundException -> {

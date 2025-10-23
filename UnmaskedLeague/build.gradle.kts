@@ -29,12 +29,12 @@ kotlin {
     sourceSets {
         val jvmMain by getting {
             dependencies {
-                implementation("io.github.reactivecircus.cache4k:cache4k:0.14.0")
+                implementation("ru.gildor.coroutines:kotlin-coroutines-okhttp:1.0")
+                implementation("com.mayakapps.kache:kache:2.1.1")
                 implementation("io.ktor:ktor-server-core:${ktor_version}")
                 implementation("io.ktor:ktor-server-cio:${ktor_version}")
                 implementation("io.ktor:ktor-client-core:${ktor_version}")
                 implementation("io.ktor:ktor-client-cio:${ktor_version}")
-                implementation("io.ktor:ktor-client-okhttp:${ktor_version}")
                 implementation("io.ktor:ktor-client-encoding:${ktor_version}")
                 implementation("io.ktor:ktor-network:$ktor_version")
                 implementation("io.ktor:ktor-network-tls:$ktor_version")

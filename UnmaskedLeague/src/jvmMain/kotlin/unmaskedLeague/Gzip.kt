@@ -18,3 +18,5 @@ fun String.gzipBase64(): String {
     GZIPOutputStream(outputStream).bufferedWriter(Charsets.UTF_8).use { it.write(this); it.flush() }
     return Base64.getEncoder().encodeToString(outputStream.toByteArray())
 }
+
+fun String.base64(): String = Base64.getEncoder().encodeToString(toByteArray())

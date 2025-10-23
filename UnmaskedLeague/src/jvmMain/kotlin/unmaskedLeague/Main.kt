@@ -36,7 +36,8 @@ val userProfile = System.getenv("USERPROFILE") ?: error("USERPROFILE not found")
 val unmaskedLeagueFolder = userProfile.toPath() / "UnmaskedLeague"
 val companionPath by lazy { Paths.get(lolPaths.lolClientPath, "Config").toOkioPath() }
 val systemYamlPatchedPath by lazy { companionPath / "system.yaml" }
-val client = HttpClient(ClientCIO) { install(ContentEncoding) { gzip() } }
+val configClient = HttpClient(ClientCIO) { install(ContentEncoding) { gzip() } }
+val lcuClient = unsafeOkHttpClient()
 
 data class LcdsHost(val host: String, val port: Int)
 data class Globals(val region: String, val locale: String)
@@ -61,6 +62,7 @@ fun main(): Unit = runBlocking {
         val clientJob = launch { startClient(hosts, configProxy) }
         trayIcon = showTray(clientJob)
         clientJob.join()
+        cache.invalidateAll()
     }.onFailure {
         when (it) {
             is LeagueNotFoundException -> {
@@ -82,7 +84,7 @@ fun main(): Unit = runBlocking {
 
     proxies.forEach { it.cancel() }
     configProxy.stop()
-    client.close()
+    configClient.close()
     systemTray.remove(trayIcon)
     logger.info { "Exited" }
 }

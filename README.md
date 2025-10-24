@@ -11,7 +11,7 @@
 > works: [Showing names in SOLOQ champ select](https://xbaank.github.io/blog/showing-names-in-soloq.html)
 
 UnmaskedLeague is an application for the League of Legends client.
-It allows you to unmask the names of the players in SOLOQ champion select.
+It allows you to dodge and unmask the names of the players in SOLOQ champion select
 ![Umasked.png](.assets/Umasked.png)
 
 ## Requirements

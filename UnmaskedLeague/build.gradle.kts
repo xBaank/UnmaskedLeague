@@ -29,6 +29,8 @@ kotlin {
     sourceSets {
         val jvmMain by getting {
             dependencies {
+                implementation("ru.gildor.coroutines:kotlin-coroutines-okhttp:1.0")
+                implementation("com.mayakapps.kache:kache:2.1.1")
                 implementation("io.ktor:ktor-server-core:${ktor_version}")
                 implementation("io.ktor:ktor-server-cio:${ktor_version}")
                 implementation("io.ktor:ktor-client-core:${ktor_version}")

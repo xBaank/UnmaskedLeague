@@ -52,7 +52,7 @@ class ConfigProxy {
 
                         try {
 
-                            val response = client.request(url) {
+                            val response = configClient.request(url) {
                                 method = call.request.httpMethod
                                 val reqHeaders =
                                     call.request.headers.filter { key, value -> !key.equals("Host", true) }

@@ -112,7 +112,7 @@ class LeagueProxyClient internal constructor(
         awaitAll(lolServerToClientProxy, lolClientToServerProxy)
     }
 
-    private fun unmask(nodes: List<Amf0Node>): List<Amf0Node> {
+    private suspend fun unmask(nodes: List<Amf0Node>): List<Amf0Node> {
         val body = nodes.firstOrNull { it["body"] != null }?.get("body")
 
         val isCompressed = body?.get("compressedPayload")?.toAmf0Boolean()?.value ?: return nodes
@@ -121,13 +121,33 @@ class LeagueProxyClient internal constructor(
         val json = if (isCompressed) payloadGzip.base64Ungzip() else payloadGzip
         val payload = json.deserialized().getOrElse { throw it } // Can this come in other formats?
 
-        if (payload["queueId"].asInt().getOrNull() != SOLOQ_ID) return nodes
+        if (payload["championSelectState"]["showQuitButton"].isRight()) {
+            payload["championSelectState"]["showQuitButton"] = true
+        }
 
+        if (payload["queueId"].asInt().getOrNull() != SOLOQ_ID) {
+            val serialized = payload.serialized()
+            body["payload"] = if (isCompressed) serialized.gzipBase64().toAmf0String() else serialized.toAmf0String()
+            return nodes
+        }
+
+        val playersPuuids = payload["championSelectState"]["cells"]["alliedTeam"].asArray().getOrNull()
+            ?.filter { it["nameVisibilityType"].asString().getOrNull() == "HIDDEN" }
+            ?.mapNotNull { it["puuid"].asString().getOrNull() }
+            ?.sorted() ?: listOf()
+
+
+        val summonersData = getSummonersData(playersPuuids)
         val localCellID = payload["championSelectState"]["localPlayerCellId"].asInt().getOrNull()
 
-        payload["championSelectState"]["cells"]["alliedTeam"].asArray().getOrNull()?.forEach {
-            if (it["cellId"].asInt().getOrNull() == localCellID) return@forEach
-            if (it["nameVisibilityType"].isRight()) it["nameVisibilityType"] = "VISIBLE"
+        payload["championSelectState"]["cells"]["alliedTeam"].asArray().getOrNull()?.forEach { node ->
+            if (node["cellId"].asInt().getOrNull() == localCellID) return@forEach
+
+            val puuid = node["puuid"].asString().getOrNull()
+            val summonerData = summonersData?.firstOrNull { it.puuid == puuid }
+            if (node["gameName"].isRight()) node["gameName"] = summonerData?.gameName ?: ""
+            if (node["tagLine"].isRight()) node["tagLine"] = summonerData?.tagLine ?: ""
+            if (node["nameVisibilityType"].isRight()) node["nameVisibilityType"] = "VISIBLE"
         }
 
         val serialized = payload.serialized()

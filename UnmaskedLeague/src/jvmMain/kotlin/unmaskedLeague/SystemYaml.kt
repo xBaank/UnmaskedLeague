@@ -32,7 +32,7 @@ fun extractResourceToFile(): File {
 suspend fun downloadLatestSystemYaml(region: String) {
     extractResourceToFile()
     val response =
-        client.get("https://clientconfig.rpg.riotgames.com/api/v1/config/public?os=windows&region=$region&app=league_of_legends&version=1&patchline=live")
+        configClient.get("https://clientconfig.rpg.riotgames.com/api/v1/config/public?os=windows&region=$region&app=league_of_legends&version=1&patchline=live")
     require(response.status.isSuccess())
     val body = response.bodyAsText().deserialized().getOrElse { throw it }
     val configurations =

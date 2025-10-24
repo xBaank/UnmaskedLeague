@@ -2,6 +2,8 @@ package unmaskedLeague
 
 import arrow.core.getOrElse
 import com.github.pgreze.process.process
+import com.mayakapps.kache.InMemoryKache
+import com.mayakapps.kache.KacheStrategy
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.*
 import io.ktor.client.plugins.compression.*
@@ -21,6 +23,7 @@ import java.awt.*
 import java.nio.file.Paths
 import javax.swing.JOptionPane
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.minutes
 import io.ktor.client.engine.cio.CIO as ClientCIO
 
 
@@ -38,6 +41,10 @@ val companionPath by lazy { Paths.get(lolPaths.lolClientPath, "Config").toOkioPa
 val systemYamlPatchedPath by lazy { companionPath / "system.yaml" }
 val configClient = HttpClient(ClientCIO) { install(ContentEncoding) { gzip() } }
 val lcuClient = unsafeOkHttpClient()
+val summonersCache = InMemoryKache<List<String>, List<SummonerData>>(maxSize = 5 * 1024 * 1024) {
+    strategy = KacheStrategy.LRU
+    expireAfterAccessDuration = 5.minutes
+}
 
 data class LcdsHost(val host: String, val port: Int)
 data class Globals(val region: String, val locale: String)

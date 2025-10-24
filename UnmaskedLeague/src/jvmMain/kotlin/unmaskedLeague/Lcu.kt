@@ -1,8 +1,6 @@
 package unmaskedLeague
 
 import arrow.core.getOrElse
-import com.mayakapps.kache.InMemoryKache
-import com.mayakapps.kache.KacheStrategy
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -15,18 +13,12 @@ import simpleJson.*
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
-import kotlin.time.Duration.Companion.minutes
 
 data class LcuData(val protocol: String, val port: Int, val auth: String)
 data class SummonerData(val puuid: String, val gameName: String, val tagLine: String)
 
-val cache = InMemoryKache<List<String>, List<SummonerData>>(maxSize = 5 * 1024 * 1024) {
-    strategy = KacheStrategy.LRU
-    expireAfterAccessDuration = 5.minutes
-}
 
-
-suspend fun getSummonersData(puuids: List<String>) = cache.getOrPut(puuids) {
+suspend fun getSummonersData(puuids: List<String>) = summonersCache.getOrPut(puuids) {
     logger.info { "Getting summoner data for $puuids" }
     val (protocol, port, auth) = getLcuData()
 

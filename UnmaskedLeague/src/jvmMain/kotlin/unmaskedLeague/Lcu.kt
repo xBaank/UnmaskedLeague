@@ -20,7 +20,7 @@ import kotlin.time.Duration.Companion.minutes
 data class LcuData(val protocol: String, val port: Int, val auth: String)
 data class SummonerData(val puuid: String, val gameName: String, val tagLine: String)
 
-val cache = InMemoryKache<List<String>, List<SummonerData>>(maxSize = 1 * 1024 * 1024) {
+val cache = InMemoryKache<List<String>, List<SummonerData>>(maxSize = 5 * 1024 * 1024) {
     strategy = KacheStrategy.LRU
     expireAfterAccessDuration = 5.minutes
 }

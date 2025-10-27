@@ -32,11 +32,11 @@ fun extractResourceToFile(): File {
 suspend fun downloadLatestSystemYaml(region: String) {
     extractResourceToFile()
     val response =
-        configClient.get("https://clientconfig.rpg.riotgames.com/api/v1/config/public?os=windows&region=$region&app=league_of_legends&version=1&patchline=live")
+        configClient.get("https://clientconfig.rpg.riotgames.com/api/v1/config/public?os=windows&region=$region&app=league_of_legends&version=1&patchline=$patchLine")
     require(response.status.isSuccess())
     val body = response.bodyAsText().deserialized().getOrElse { throw it }
     val configurations =
-        body["keystone.products.league_of_legends.patchlines.live"]["platforms"]["win"]["configurations"]
+        body["keystone.products.league_of_legends.patchlines.$patchLine"]["platforms"]["win"]["configurations"]
     val manifestUrl = either {
         configurations.asArray().bind().first { it["id"].asString().bind() == region }["patch_url"].asString().bind()
     }.getOrElse { throw it }

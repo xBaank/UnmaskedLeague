@@ -45,13 +45,17 @@ val summonersCache = InMemoryKache<List<String>, List<SummonerData>>(maxSize = 5
     strategy = KacheStrategy.LRU
     expireAfterAccessDuration = 5.minutes
 }
+var isPbe = false
+val patchLine get() = if (isPbe) "pbe" else "live"
 
 data class LcdsHost(val host: String, val port: Int)
 data class Globals(val region: String, val locale: String)
 data class LolPaths(val riotClientPath: String, val lolClientPath: String)
 
 
-fun main(): Unit = runBlocking {
+fun main(args: Array<String>): Unit = runBlocking {
+    isPbe = args.firstOrNull { it == "--pbe" } != null
+
     if (isLockfileTaken()) return@runBlocking
 
     val proxies = mutableListOf<Job>()
@@ -160,7 +164,7 @@ private suspend fun startClient(hosts: Map<String, LcdsHost>, configProxy: Confi
         process(
             lolPaths.riotClientPath,
             "--launch-product=league_of_legends",
-            "--launch-patchline=live",
+            "--launch-patchline=$patchLine",
             """--client-config-url="http://127.0.0.1:${configProxy.port}""""
         )
         cancel("League closed")
@@ -168,7 +172,7 @@ private suspend fun startClient(hosts: Map<String, LcdsHost>, configProxy: Confi
 
 val lolPaths by lazy {
     val lolClientInstalls: Path = System.getenv("ALLUSERSPROFILE")
-        ?.let { "$it/Riot Games/Metadata/league_of_legends.live/league_of_legends.live.product_settings.yaml" }
+        ?.let { "$it/Riot Games/Metadata/league_of_legends.$patchLine/league_of_legends.$patchLine.product_settings.yaml" }
         ?.toPath(true)
         ?.takeIf { FileSystem.SYSTEM.exists(it) }
         ?: throw LeagueNotFoundException("Cannot find Lol Client Installs (ALLUSERSPROFILE)")

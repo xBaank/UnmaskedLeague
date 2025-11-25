@@ -44,7 +44,7 @@ kotlin {
                 implementation("org.yaml:snakeyaml:2.5")
                 implementation("com.squareup.okio:okio:3.16.4")
                 // https://mvnrepository.com/artifact/com.squareup.okhttp3/okhttp
-                implementation("com.squareup.okhttp3:okhttp:5.2.1")
+                implementation("com.squareup.okhttp3:okhttp:5.3.2")
                 implementation("io.github.oshai:kotlin-logging-jvm:7.0.13")
                 // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
                 implementation("ch.qos.logback:logback-classic:1.5.21")

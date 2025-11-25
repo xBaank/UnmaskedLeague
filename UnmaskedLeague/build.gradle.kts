@@ -39,7 +39,7 @@ kotlin {
                 implementation("io.ktor:ktor-network:$ktor_version")
                 implementation("io.ktor:ktor-network-tls:$ktor_version")
                 implementation("io.github.xbaank:simpleJson-core:4.0.0")
-                implementation("io.arrow-kt:arrow-core:2.1.2")
+                implementation("io.arrow-kt:arrow-core:2.2.0")
                 // https://mvnrepository.com/artifact/org.yaml/snakeyaml
                 implementation("org.yaml:snakeyaml:2.5")
                 implementation("com.squareup.okio:okio:3.16.4")

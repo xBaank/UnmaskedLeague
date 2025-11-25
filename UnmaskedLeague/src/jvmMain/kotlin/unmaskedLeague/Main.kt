@@ -39,6 +39,7 @@ val userProfile = System.getenv("USERPROFILE") ?: error("USERPROFILE not found")
 val unmaskedLeagueFolder = userProfile.toPath() / "UnmaskedLeague"
 val companionPath by lazy { Paths.get(lolPaths.lolClientPath, "Config").toOkioPath() }
 val systemYamlPatchedPath by lazy { companionPath / "system.yaml" }
+val systemYamlOriginalPath by lazy { lolPaths.lolClientPath.toPath() / "system.yaml" }
 val configClient = HttpClient(ClientCIO) { install(ContentEncoding) { gzip() } }
 val lcuClient = unsafeOkHttpClient()
 val summonersCache = InMemoryKache<List<String>, List<SummonerData>>(maxSize = 5 * 1024 * 1024) {

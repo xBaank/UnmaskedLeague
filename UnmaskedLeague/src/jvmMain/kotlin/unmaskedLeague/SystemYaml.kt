@@ -14,21 +14,33 @@ import simpleJson.asString
 import simpleJson.deserialized
 import simpleJson.get
 import java.io.File
-import java.io.InputStream
+import java.security.MessageDigest
 
 fun extractResourceToFile(): File {
     val file = (unmaskedLeagueFolder / "ManifestDownloader.exe").toFile()
-    if (file.exists()) return file
 
-    val inputStream: InputStream? = object {}.javaClass.classLoader.getResourceAsStream("ManifestDownloader.exe")
-    requireNotNull(inputStream) { "Manifest downloader not found" }
+    // Load resource into memory
+    val bytes = object {}.javaClass.classLoader
+        .getResourceAsStream("ManifestDownloader.exe")
+        ?.readAllBytes()
+        ?: error("Manifest downloader not found")
 
-    file.outputStream().use { output ->
-        inputStream.copyTo(output)
+    // Compute SHA-256 of resource bytes
+    val resourceHash = MessageDigest.getInstance("SHA-256").digest(bytes)
+
+    if (file.exists()) {
+        // Compute SHA-256 of existing file
+        val fileHash = MessageDigest.getInstance("SHA-256").digest(file.readBytes())
+        if (resourceHash.contentEquals(fileHash)) {
+            return file // identical, no need to overwrite
+        }
     }
 
+    // Write resource to disk
+    file.writeBytes(bytes)
     return file
 }
+
 
 suspend fun downloadLatestSystemYaml(region: String) {
     try {

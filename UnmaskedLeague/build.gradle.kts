@@ -45,7 +45,7 @@ kotlin {
                 implementation("com.squareup.okio:okio:3.16.4")
                 // https://mvnrepository.com/artifact/com.squareup.okhttp3/okhttp
                 implementation("com.squareup.okhttp3:okhttp:5.3.2")
-                implementation("io.github.oshai:kotlin-logging-jvm:7.0.13")
+                implementation("io.github.oshai:kotlin-logging-jvm:8.0.01")
                 // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
                 implementation("ch.qos.logback:logback-classic:1.5.21")
                 // Check the 🔝 maven central badge 🔝 for the latest $kotlinProcessVersion

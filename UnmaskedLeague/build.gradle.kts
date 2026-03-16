@@ -42,7 +42,7 @@ kotlin {
                 implementation("io.arrow-kt:arrow-core:2.2.0")
                 // https://mvnrepository.com/artifact/org.yaml/snakeyaml
                 implementation("org.yaml:snakeyaml:2.5")
-                implementation("com.squareup.okio:okio:3.16.4")
+                implementation("com.squareup.okio:okio:3.17.0")
                 // https://mvnrepository.com/artifact/com.squareup.okhttp3/okhttp
                 implementation("com.squareup.okhttp3:okhttp:5.3.2")
                 implementation("io.github.oshai:kotlin-logging-jvm:7.0.13")

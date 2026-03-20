@@ -1,7 +1,7 @@
 # 🎭 UnmaskedLeague [![Java CI with Gradle](https://github.com/xBaank/UnmaskedLeague/actions/workflows/gradle.yml/badge.svg)](https://github.com/xBaank/UnmaskedLeague/actions/workflows/gradle.yml)
 
-> [!CAUTION]\
-> You could be banned from the game for using this software.
+> [!WARNING]\
+> This repository is archived and no longer maintained. The exploit it relied on no longer works.
 
 > [!NOTE]\
 > This exploit was discovered by [Hawolt](https://github.com/hawolt), You can check his version
